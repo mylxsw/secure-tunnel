@@ -74,6 +74,9 @@ type Client struct {
 	secret     string
 	tunnels    uint
 
+	currentUser string
+	password    string
+
 	alloc *IdAllocator
 	cq    HubQueue
 	lock  sync.Mutex
