@@ -47,18 +47,18 @@ func (b *Buffer) Put(data []byte) bool {
 	}
 
 	// if there is only 1 free slot, we allocate more
-	var old_cap = cap(b.buf)
-	if (b.end+1)%old_cap == b.start {
+	var oldCap = cap(b.buf)
+	if (b.end+1)%oldCap == b.start {
 		buf := make([][]byte, cap(b.buf)*2)
 		if b.end > b.start {
 			copy(buf, b.buf[b.start:b.end])
 		} else if b.end < b.start {
-			copy(buf, b.buf[b.start:old_cap])
-			copy(buf[old_cap-b.start:], b.buf[0:b.end])
+			copy(buf, b.buf[b.start:oldCap])
+			copy(buf[oldCap-b.start:], b.buf[0:b.end])
 		}
 		b.buf = buf
 		b.start = 0
-		b.end = old_cap - 1
+		b.end = oldCap - 1
 	}
 
 	b.buf[b.end] = data

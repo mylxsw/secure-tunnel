@@ -5,8 +5,10 @@
 
 package tunnel
 
+import "github.com/mylxsw/asteria/log"
+
 func Recover() {
 	if err := recover(); err != nil {
-		LogStack("goroutine failed:%v", err)
+		log.Errorf("goroutine failed:%v", err)
 	}
 }

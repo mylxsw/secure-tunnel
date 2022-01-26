@@ -6,8 +6,8 @@
 package tunnel
 
 import (
+	"github.com/mylxsw/asteria/log"
 	"net"
-	"strings"
 )
 
 // server hub
@@ -23,7 +23,7 @@ func (h *ServerHub) handleLink(l *link) {
 
 	conn, err := net.DialTCP("tcp", nil, h.baddr)
 	if err != nil {
-		Error("link(%d) connect to serverAddr failed, err:%v", l.id, err)
+		log.Errorf("link(%d) connect to serverAddr failed, err:%v", l.id, err)
 		h.SendCmd(l.id, LINK_CLOSE)
 		h.deleteLink(l.id)
 		return
@@ -73,41 +73,37 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	tunnel := newTunnel(conn)
 	// authenticate connection
-	a := NewTaa(s.secret)
-	a.GenToken()
+	a := NewEncryptAlgorithm(s.secret)
+	a.GenerateToken()
 
-	challenge := a.GenCipherBlock(nil)
+	challenge := a.GenerateCipherBlock(nil)
 	if err := tunnel.WritePacket(0, challenge); err != nil {
-		Error("write challenge failed(%v):%s", tunnel, err)
+		log.Errorf("write challenge failed(%v):%s", tunnel, err)
 		return
 	}
 
 	_, token, err := tunnel.ReadPacket()
 	if err != nil {
-		Error("read token failed(%v):%s", tunnel, err)
+		log.Errorf("read token failed(%v):%s", tunnel, err)
 		return
 	}
 
 	if !a.VerifyCipherBlock(token) {
-		Error("verify token failed(%v)", tunnel)
+		log.Errorf("verify token failed(%v)", tunnel)
 		return
 	}
 
 	tunnel.SetCipherKey(a.GetRc4key())
 
-	_, userInfo, err := tunnel.ReadPacket()
+	_, authPacket, err := tunnel.ReadPacket()
 	if err != nil {
-		Error("read username & password failed(%v):%s", tunnel, err)
+		log.Errorf("read username & password failed(%v):%s", tunnel, err)
 		return
 	}
 
-	segs := strings.Split(string(userInfo), "@")
-	userInfos := strings.SplitN(strings.Join(segs[:len(segs)-1], "@"), ":", 2)
-
-	backend := segs[len(segs)-1]
-	username, password := userInfos[0], userInfos[1]
+	username, password, backend := parseAuthPacket(authPacket)
 	if !s.ValidateUser(username, password) {
-		Error("invalid password for user %s", username)
+		log.Errorf("invalid password for user %s", username)
 		return
 	}
 
@@ -127,13 +123,13 @@ func (s *Server) Start() error {
 		conn, err := s.ln.Accept()
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
-				Log("acceept failed temporary: %s", netErr.Error())
+				log.Warningf("accept failed temporary: %s", netErr.Error())
 				continue
 			} else {
 				return err
 			}
 		}
-		Log("new connection from %v", conn.RemoteAddr())
+		log.Warningf("new connection from %v", conn.RemoteAddr())
 		go s.handleConn(conn)
 	}
 }

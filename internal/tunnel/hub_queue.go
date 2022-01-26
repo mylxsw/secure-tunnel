@@ -5,6 +5,8 @@
 
 package tunnel
 
+import "github.com/mylxsw/asteria/log"
+
 type HubItem struct {
 	*ClientHub
 	priority int // current link count
@@ -13,7 +15,7 @@ type HubItem struct {
 
 func (h *HubItem) Status() {
 	h.Hub.Status()
-	Log("priority:%d, index:%d", h.priority, h.index)
+	log.Warningf("priority:%d, index:%d", h.priority, h.index)
 }
 
 type HubQueue []*HubItem

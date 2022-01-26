@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	TunnelMaxId = ^uint16(0)
+	MaxID = ^uint16(0)
 
-	TunnelPacketSize      = 8192
-	TunnelKeepAlivePeriod = time.Second * 180
+	PacketSize      = 8192
+	KeepalivePeriod = time.Second * 180
 
 	defaultHeartbeat = 1
 	tunnelMinSpan    = 3 // 3次心跳无回应则断开
@@ -25,10 +25,7 @@ var (
 
 	// Timeout for tunnel write/read, seconds
 	Timeout int = 0 //
-
-	// LogLevel .
-	LogLevel uint = 1
-	mpool         = NewMPool(TunnelPacketSize)
+	mpool       = NewMPool(PacketSize)
 )
 
 func getHeartbeat() time.Duration {

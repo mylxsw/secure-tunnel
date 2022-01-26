@@ -9,6 +9,8 @@ import (
 	"container/heap"
 	"errors"
 	"fmt"
+	"github.com/mylxsw/asteria/log"
+	"github.com/mylxsw/secure-tunnel/internal/config"
 	"net"
 	"sync"
 	"time"
@@ -17,8 +19,8 @@ import (
 // ClientHub manages client links
 type ClientHub struct {
 	*Hub
-	sent uint16
-	rcvd uint16
+	sent     uint16
+	received uint16
 }
 
 func (h *ClientHub) heartbeat() {
@@ -30,12 +32,16 @@ func (h *ClientHub) heartbeat() {
 	if maxSpan <= tunnelMinSpan {
 		maxSpan = tunnelMinSpan
 	}
-	Debug("maxspan: %d", maxSpan)
+
+	if log.DebugEnabled() {
+		log.Debugf("maxspan: %d", maxSpan)
+	}
+
 	for range ticker.C {
 		// id overflow
-		span := 0xffff - h.rcvd + h.sent + 1
+		span := 0xffff - h.received + h.sent + 1
 		if int(span) >= maxSpan {
-			Error("tunnel(%v) timeout, sent:%d, rcvd:%d", h.Hub.tunnel, h.sent, h.rcvd)
+			log.Errorf("tunnel(%v) timeout, sent:%d, received:%d", h.Hub.tunnel, h.sent, h.received)
 			h.Hub.Close()
 			break
 		}
@@ -51,7 +57,7 @@ func (h *ClientHub) onCtrl(cmd Cmd) bool {
 	id := cmd.Id
 	switch cmd.Cmd {
 	case TUN_HEARTBEAT:
-		h.rcvd = id
+		h.received = id
 		return true
 	}
 	return false
@@ -66,16 +72,15 @@ func newClientHub(tunnel *Tunnel) *ClientHub {
 	return h
 }
 
-// tunnel client
+// Client tunnel client
 type Client struct {
-	laddr      string
-	backend    string
-	serverAddr string
-	secret     string
-	tunnels    uint
+	conf *config.Client
 
-	currentUser string
-	password    string
+	localListenAddr string
+	backend         string
+	serverAddr      string
+	secret          string
+	tunnels         uint
 
 	alloc *IdAllocator
 	cq    HubQueue
@@ -91,28 +96,27 @@ func (cli *Client) createHub() (hub *HubItem, err error) {
 	tunnel := newTunnel(conn)
 	_, challenge, err := tunnel.ReadPacket()
 	if err != nil {
-		Error("read challenge failed(%v):%s", tunnel, err)
+		log.Errorf("read challenge failed(%v):%s", tunnel, err)
 		return
 	}
 
-	a := NewTaa(cli.secret)
+	a := NewEncryptAlgorithm(cli.secret)
 	token, ok := a.ExchangeCipherBlock(challenge)
 	if !ok {
-		err = errors.New("exchange chanllenge failed")
-		Error("exchange challenge failed(%v)", tunnel)
+		err = errors.New("exchange challenge failed")
+		log.Errorf("exchange challenge failed(%v)", tunnel)
 		return
 	}
 
 	if err = tunnel.WritePacket(0, token); err != nil {
-		Error("write token failed(%v):%s", tunnel, err)
+		log.Errorf("write token failed(%v):%s", tunnel, err)
 		return
 	}
 
 	tunnel.SetCipherKey(a.GetRc4key())
 
-	userInfo := fmt.Sprintf("%s:%s@%s", cli.currentUser, cli.password, cli.backend)
-	if err = tunnel.WritePacket(0, []byte(userInfo)); err != nil {
-		Error("write username & password failed(%v):%s", tunnel, err)
+	if err = tunnel.WritePacket(0, buildAuthPacket(cli.conf.Username, cli.conf.Password, cli.backend)); err != nil {
+		log.Errorf("write username & password failed(%v):%s", tunnel, err)
 		return
 	}
 
@@ -157,7 +161,9 @@ func (cli *Client) dropHub(item *HubItem) {
 func (cli *Client) handleConn(hub *HubItem, conn *net.TCPConn) {
 	defer Recover()
 	defer cli.dropHub(hub)
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	id := cli.alloc.Acquire()
 	defer cli.alloc.Release(id)
@@ -167,38 +173,40 @@ func (cli *Client) handleConn(hub *HubItem, conn *net.TCPConn) {
 	defer h.deleteLink(id)
 
 	h.SendCmd(id, LINK_CREATE)
-	h.startLink(l, conn, cli.currentUser)
+	h.startLink(l, conn, cli.conf.Username)
 }
 
 func (cli *Client) listen() error {
-	ln, err := net.Listen("tcp", cli.laddr)
+	ln, err := net.Listen("tcp", cli.localListenAddr)
 	if err != nil {
 		return err
 	}
 
-	defer ln.Close()
+	defer func() {
+		_ = ln.Close()
+	}()
 
 	tcpListener := ln.(*net.TCPListener)
 	for {
 		conn, err := tcpListener.AcceptTCP()
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
-				Log("acceept failed temporary: %s", netErr.Error())
+				log.Warningf("accept failed temporary: %s", netErr.Error())
 				continue
 			} else {
 				return err
 			}
 		}
-		Info("new connection from %v", conn.RemoteAddr())
+		log.Infof("new connection from %v", conn.RemoteAddr())
 		hub := cli.fetchHub()
 		if hub == nil {
-			Error("no active hub")
-			conn.Close()
+			log.Errorf("no active hub")
+			_ = conn.Close()
 			continue
 		}
 
-		conn.SetKeepAlive(true)
-		conn.SetKeepAlivePeriod(time.Second * 60)
+		_ = conn.SetKeepAlive(true)
+		_ = conn.SetKeepAlivePeriod(time.Second * 60)
 		go cli.handleConn(hub, conn)
 	}
 }
@@ -213,16 +221,16 @@ func (cli *Client) Start() error {
 			for {
 				hub, err := cli.createHub()
 				if err != nil {
-					Error("tunnel %d reconnect failed", index)
+					log.Errorf("tunnel %d reconnect failed", index)
 					time.Sleep(time.Second * 3)
 					continue
 				}
 
-				Error("tunnel %d connect succeed", index)
+				log.Errorf("tunnel %d connect succeed", index)
 				cli.addHub(hub)
 				hub.Start()
 				cli.removeHub(hub)
-				Error("tunnel %d disconnected", index)
+				log.Errorf("tunnel %d disconnected", index)
 			}
 		}(i)
 	}
@@ -238,27 +246,24 @@ func (cli *Client) Status() {
 	}
 }
 
-func NewClient(listen, backend, secret string, tunnels uint, username, password string) (*Client, error) {
+func NewClient(backendAddr, serverAddr, secret string, tunnels uint, conf *config.Client) (*Client, error) {
 
-	addr, err := net.ResolveTCPAddr("tcp", listen)
+	backendServerAddr, err := net.ResolveTCPAddr("tcp", backendAddr)
 	if err != nil {
 		panic(err)
 	}
 
-	listenAddr := fmt.Sprintf(":%d", addr.Port)
+	localListenAddr := fmt.Sprintf(":%d", backendServerAddr.Port)
 
 	client := &Client{
-		laddr:      listenAddr,
-		backend:    listen,
-		serverAddr: backend,
-		secret:     secret,
-		tunnels:    tunnels,
-
-		currentUser: username,
-		password:    password,
-
-		alloc: newAllocator(),
-		cq:    make(HubQueue, tunnels)[0:0],
+		conf:            conf,
+		localListenAddr: localListenAddr,
+		backend:         backendAddr,
+		serverAddr:      serverAddr,
+		secret:          secret,
+		tunnels:         tunnels,
+		alloc:           newAllocator(),
+		cq:              make(HubQueue, tunnels)[0:0],
 	}
 	return client, nil
 }

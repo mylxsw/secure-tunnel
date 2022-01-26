@@ -7,6 +7,8 @@ package tunnel
 
 import (
 	"errors"
+	"fmt"
+	"github.com/mylxsw/asteria/log"
 	"net"
 	"sync"
 	"time"
@@ -93,7 +95,7 @@ func (l *link) _write() error {
 // set low level connection
 func (l *link) setConn(conn *net.TCPConn) {
 	if l.conn != nil {
-		Panic("link(%d) repeated set conn", l.id)
+		panic(fmt.Errorf("link(%d) repeated set conn", l.id))
 	}
 	l.conn = conn
 }
@@ -106,18 +108,18 @@ func (h *Hub) getLink(id uint16) *link {
 }
 
 func (h *Hub) deleteLink(id uint16) {
-	Info("link(%d) delete", id)
+	log.Infof("link(%d) delete", id)
 	h.ll.Lock()
 	defer h.ll.Unlock()
 	delete(h.links, id)
 }
 
 func (h *Hub) createLink(id uint16) *link {
-	Info("link(%d) new link over %s", id, h.tunnel)
+	log.Infof("link(%d) new link over %s", id, h.tunnel)
 	h.ll.Lock()
 	defer h.ll.Unlock()
 	if _, ok := h.links[id]; ok {
-		Error("link(%d) repeated over %s", id, h.tunnel)
+		log.Errorf("link(%d) repeated over %s", id, h.tunnel)
 		return nil
 	}
 	l := &link{
@@ -133,7 +135,7 @@ func (h *Hub) startLink(l *link, conn *net.TCPConn, currentUser string) {
 	conn.SetKeepAlivePeriod(time.Second * 60)
 	l.setConn(conn)
 
-	Info("link(%d) start, user=%s, remote=%v", l.id, currentUser, conn.RemoteAddr())
+	log.Infof("link(%d) start, user=%s, remote=%v", l.id, currentUser, conn.RemoteAddr())
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -164,5 +166,5 @@ func (h *Hub) startLink(l *link, conn *net.TCPConn, currentUser string) {
 		}
 	}()
 	wg.Wait()
-	Info("link(%d) close", l.id)
+	log.Infof("link(%d) close", l.id)
 }

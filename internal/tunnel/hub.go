@@ -8,6 +8,7 @@ package tunnel
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/mylxsw/asteria/log"
 	"sync"
 )
 
@@ -43,9 +44,9 @@ func (h *Hub) SendCmd(id uint16, cmd uint8) bool {
 	binary.Write(buf, binary.LittleEndian, &c)
 
 	if cmd == TUN_HEARTBEAT {
-		Debug("%s send heartbeat: %d", h.tunnel, id)
+		log.Debugf("%s send heartbeat: %d", h.tunnel, id)
 	} else {
-		Info("link(%d) send cmd:%d", id, cmd)
+		log.Infof("link(%d) send cmd:%d", id, cmd)
 	}
 
 	return h.Send(0, buf.Bytes())
@@ -53,7 +54,7 @@ func (h *Hub) SendCmd(id uint16, cmd uint8) bool {
 
 func (h *Hub) Send(id uint16, data []byte) bool {
 	if err := h.tunnel.WritePacket(id, data); err != nil {
-		Error("link(%d) write to %s failed:%s", id, h.tunnel, err.Error())
+		log.Errorf("link(%d) write to %s failed:%s", id, h.tunnel, err.Error())
 		return false
 	}
 	return true
@@ -61,9 +62,9 @@ func (h *Hub) Send(id uint16, data []byte) bool {
 
 func (h *Hub) onCtrl(cmd Cmd) {
 	if cmd.Cmd == TUN_HEARTBEAT {
-		Debug("%s recv heartbeat: %d", h.tunnel, cmd.Id)
+		log.Debugf("%s recv heartbeat: %d", h.tunnel, cmd.Id)
 	} else {
-		Info("link(%d) recv cmd:%d", cmd.Id, cmd.Cmd)
+		log.Infof("link(%d) recv cmd:%d", cmd.Id, cmd.Cmd)
 	}
 
 	if h.onCtrlFilter != nil && h.onCtrlFilter(cmd) {
@@ -73,7 +74,7 @@ func (h *Hub) onCtrl(cmd Cmd) {
 	id := cmd.Id
 	l := h.getLink(id)
 	if l == nil {
-		Error("link(%d) recv cmd:%d, no link", id, cmd.Cmd)
+		log.Errorf("link(%d) recv cmd:%d, no link", id, cmd.Cmd)
 		return
 	}
 
@@ -85,23 +86,23 @@ func (h *Hub) onCtrl(cmd Cmd) {
 	case LINK_CLOSE_SEND:
 		l.wclose()
 	default:
-		Error("link(%d) receive unknown cmd:%v", id, cmd)
+		log.Errorf("link(%d) receive unknown cmd:%v", id, cmd)
 	}
 }
 
 func (h *Hub) onData(id uint16, data []byte) {
-	Info("link(%d) recv %d bytes data", id, len(data))
+	log.Infof("link(%d) recv %d bytes data", id, len(data))
 
 	link := h.getLink(id)
 	if link == nil {
 		mpool.Put(data)
-		Error("link(%d) no link", id)
+		log.Errorf("link(%d) no link", id)
 		return
 	}
 
 	if !link.write(data) {
 		mpool.Put(data)
-		Error("link(%d) put data failed", id)
+		log.Errorf("link(%d) put data failed", id)
 		return
 	}
 	return
@@ -113,7 +114,7 @@ func (h *Hub) Start() {
 	for {
 		id, data, err := h.tunnel.ReadPacket()
 		if err != nil {
-			Error("%s read failed:%v", h.tunnel, err)
+			log.Errorf("%s read failed:%v", h.tunnel, err)
 			break
 		}
 
@@ -123,7 +124,7 @@ func (h *Hub) Start() {
 			err := binary.Read(buf, binary.LittleEndian, &cmd)
 			mpool.Put(data)
 			if err != nil {
-				Error("parse message failed:%s, break dispatch", err.Error())
+				log.Errorf("parse message failed:%s, break dispatch", err.Error())
 				break
 			}
 			h.onCtrl(cmd)
@@ -134,7 +135,7 @@ func (h *Hub) Start() {
 
 	// tunnel disconnect, so reset all link
 	h.resetAllLink()
-	Log("hub(%s) quit", h.tunnel)
+	log.Warningf("hub(%s) quit", h.tunnel)
 }
 
 func (h *Hub) Close() {
@@ -148,14 +149,14 @@ func (h *Hub) Status() {
 	for id := range h.links {
 		links = append(links, id)
 	}
-	Log("<status> %s, %d links(%v)", h.tunnel, len(h.links), links)
+	log.Warningf("<status> %s, %d links(%v)", h.tunnel, len(h.links), links)
 }
 
 func (h *Hub) resetAllLink() {
 	h.ll.RLock()
 	defer h.ll.RUnlock()
 
-	Error("reset all %d links", len(h.links))
+	log.Errorf("reset all %d links", len(h.links))
 	for _, l := range h.links {
 		l.aclose()
 	}

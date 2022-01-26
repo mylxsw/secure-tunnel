@@ -20,7 +20,7 @@ func (l *TcpListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 	conn.SetKeepAlive(true)
-	conn.SetKeepAlivePeriod(TunnelKeepAlivePeriod)
+	conn.SetKeepAlivePeriod(KeepalivePeriod)
 	return conn, err
 }
 
@@ -42,6 +42,6 @@ func dialTcp(raddr string) (net.Conn, error) {
 	}
 	tcpConn := conn.(*net.TCPConn)
 	tcpConn.SetKeepAlive(true)
-	tcpConn.SetKeepAlivePeriod(TunnelKeepAlivePeriod)
+	tcpConn.SetKeepAlivePeriod(KeepalivePeriod)
 	return tcpConn, nil
 }

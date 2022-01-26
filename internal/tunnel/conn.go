@@ -17,7 +17,7 @@ import (
 
 var errTooLarge = fmt.Errorf("tunnel.Read: packet too large")
 
-type TunnelConn struct {
+type Connection struct {
 	net.Conn
 	reader *bufio.Reader
 	writer *bufio.Writer
@@ -25,12 +25,12 @@ type TunnelConn struct {
 	dec    *rc4.Cipher
 }
 
-func (conn *TunnelConn) SetCipherKey(key []byte) {
+func (conn *Connection) SetCipherKey(key []byte) {
 	conn.enc, _ = rc4.NewCipher(key)
 	conn.dec, _ = rc4.NewCipher(key)
 }
 
-func (conn *TunnelConn) Read(b []byte) (int, error) {
+func (conn *Connection) Read(b []byte) (int, error) {
 	n, err := conn.reader.Read(b)
 	if n > 0 && conn.dec != nil {
 		conn.dec.XORKeyStream(b[:n], b[:n])
@@ -38,14 +38,14 @@ func (conn *TunnelConn) Read(b []byte) (int, error) {
 	return n, err
 }
 
-func (conn *TunnelConn) Write(b []byte) (int, error) {
+func (conn *Connection) Write(b []byte) (int, error) {
 	if conn.enc != nil {
 		conn.enc.XORKeyStream(b, b)
 	}
 	return conn.writer.Write(b)
 }
 
-func (conn *TunnelConn) Flush() error {
+func (conn *Connection) Flush() error {
 	return conn.writer.Flush()
 }
 
@@ -53,57 +53,57 @@ func (conn *TunnelConn) Flush() error {
 // a tunnel packet consists of a header and a body
 // Len is the length of subsequent packet body
 type header struct {
-	Linkid uint16
+	LinkID uint16
 	Len    uint16
 }
 
 type Tunnel struct {
-	*TunnelConn
+	*Connection
 
-	wlock sync.Mutex // protect concurrent write
-	werr  error      // write error
+	lock sync.Mutex // protect concurrent write
+	err  error      // write error
 }
 
-// can write concurrently
-func (tun *Tunnel) WritePacket(linkid uint16, data []byte) (err error) {
+// WritePacket can write concurrently
+func (tun *Tunnel) WritePacket(linkID uint16, data []byte) (err error) {
 	defer mpool.Put(data)
 
-	tun.wlock.Lock()
-	defer tun.wlock.Unlock()
+	tun.lock.Lock()
+	defer tun.lock.Unlock()
 
-	if tun.werr != nil {
-		return tun.werr
+	if tun.err != nil {
+		return tun.err
 	}
 
-	if err = binary.Write(tun, binary.LittleEndian, header{linkid, uint16(len(data))}); err != nil {
-		tun.werr = err
-		tun.Close()
+	if err = binary.Write(tun, binary.LittleEndian, header{linkID, uint16(len(data))}); err != nil {
+		tun.err = err
+		_ = tun.Close()
 		return err
 	}
 
 	if _, err = tun.Write(data); err != nil {
-		tun.werr = err
-		tun.Close()
+		tun.err = err
+		_ = tun.Close()
 		return err
 	}
 
 	if err = tun.Flush(); err != nil {
-		tun.werr = err
-		tun.Close()
+		tun.err = err
+		_ = tun.Close()
 		return err
 	}
 	return
 }
 
-// can't read concurrently
-func (tun *Tunnel) ReadPacket() (linkid uint16, data []byte, err error) {
+// ReadPacket can't read concurrently
+func (tun *Tunnel) ReadPacket() (linkID uint16, data []byte, err error) {
 	var h header
 
 	if err = binary.Read(tun, binary.LittleEndian, &h); err != nil {
 		return
 	}
 
-	if h.Len > TunnelPacketSize {
+	if h.Len > PacketSize {
 		err = errTooLarge
 		return
 	}
@@ -112,7 +112,7 @@ func (tun *Tunnel) ReadPacket() (linkid uint16, data []byte, err error) {
 	if _, err = io.ReadFull(tun, data); err != nil {
 		return
 	}
-	linkid = h.Linkid
+	linkID = h.LinkID
 	return
 }
 
@@ -122,6 +122,6 @@ func (tun *Tunnel) String() string {
 
 func newTunnel(conn net.Conn) *Tunnel {
 	var tun Tunnel
-	tun.TunnelConn = &TunnelConn{conn, bufio.NewReaderSize(conn, TunnelPacketSize*2), bufio.NewWriterSize(conn, TunnelPacketSize*2), nil, nil}
+	tun.Connection = &Connection{conn, bufio.NewReaderSize(conn, PacketSize*2), bufio.NewWriterSize(conn, PacketSize*2), nil, nil}
 	return &tun
 }

@@ -13,8 +13,10 @@ import (
 	"crypto/md5"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"hash"
 	"math/rand"
+	"strings"
 	"time"
 )
 
@@ -49,7 +51,7 @@ func (t authToken) complement() authToken {
 	}
 }
 
-// is complementary
+// isComplementary is complementary
 func (t authToken) isComplementary(t1 authToken) bool {
 	if t.challenge != ^t1.challenge || t.timestamp != ^t1.timestamp {
 		return false
@@ -57,18 +59,18 @@ func (t authToken) isComplementary(t1 authToken) bool {
 	return true
 }
 
-// gotunnel auth algorithm
-type Taa struct {
+// EncryptAlgorithm auth algorithm
+type EncryptAlgorithm struct {
 	block cipher.Block
 	mac   hash.Hash
 	token authToken
 }
 
-func NewTaa(key string) *Taa {
+func NewEncryptAlgorithm(key string) *EncryptAlgorithm {
 	token := sha256.Sum256([]byte(key))
 	block, _ := aes.NewCipher(token[:TaaTokenSize])
 	mac := hmac.New(md5.New, token[TaaTokenSize:])
-	return &Taa{
+	return &EncryptAlgorithm{
 		block: block,
 		mac:   mac,
 	}
@@ -78,14 +80,14 @@ func init() {
 	rand.Seed(time.Now().Unix())
 }
 
-// generate new token
-func (a *Taa) GenToken() {
+// GenerateToken generate new token
+func (a *EncryptAlgorithm) GenerateToken() {
 	a.token.challenge = uint64(rand.Int63())
 	a.token.timestamp = uint64(time.Now().UnixNano())
 }
 
-// generate cipher block
-func (a *Taa) GenCipherBlock(token *authToken) []byte {
+// GenerateCipherBlock generate cipher block
+func (a *EncryptAlgorithm) GenerateCipherBlock(token *authToken) []byte {
 	if token == nil {
 		token = &a.token
 	}
@@ -100,15 +102,15 @@ func (a *Taa) GenCipherBlock(token *authToken) []byte {
 	return dst
 }
 
-func (a *Taa) CheckSignature(src []byte) bool {
+func (a *EncryptAlgorithm) CheckSignature(src []byte) bool {
 	a.mac.Write(src[:TaaTokenSize])
 	expectedMac := a.mac.Sum(nil)
 	a.mac.Reset()
 	return hmac.Equal(src[TaaTokenSize:], expectedMac)
 }
 
-// exchange cipher block
-func (a *Taa) ExchangeCipherBlock(src []byte) ([]byte, bool) {
+// ExchangeCipherBlock exchange cipher block
+func (a *EncryptAlgorithm) ExchangeCipherBlock(src []byte) ([]byte, bool) {
 	if len(src) != TaaBlockSize {
 		return nil, false
 	}
@@ -123,11 +125,11 @@ func (a *Taa) ExchangeCipherBlock(src []byte) ([]byte, bool) {
 
 	// complement challenge
 	token := a.token.complement()
-	return a.GenCipherBlock(&token), true
+	return a.GenerateCipherBlock(&token), true
 }
 
-// verify cipher block
-func (a *Taa) VerifyCipherBlock(src []byte) bool {
+// VerifyCipherBlock verify cipher block
+func (a *EncryptAlgorithm) VerifyCipherBlock(src []byte) bool {
 	if len(src) != TaaBlockSize {
 		return false
 	}
@@ -143,6 +145,19 @@ func (a *Taa) VerifyCipherBlock(src []byte) bool {
 	return a.token.isComplementary(token)
 }
 
-func (a *Taa) GetRc4key() []byte {
+func (a *EncryptAlgorithm) GetRc4key() []byte {
 	return bytes.Repeat(a.token.toBytes(), 8)
+}
+
+func buildAuthPacket(username, password, backend string) []byte {
+	return []byte(fmt.Sprintf("%s:%s@%s", username, password, backend))
+}
+
+func parseAuthPacket(data []byte) (username, password, backend string) {
+	segs := strings.Split(string(data), "@")
+	userInfos := strings.SplitN(strings.Join(segs[:len(segs)-1], "@"), ":", 2)
+
+	backend = segs[len(segs)-1]
+	username, password = userInfos[0], userInfos[1]
+	return
 }

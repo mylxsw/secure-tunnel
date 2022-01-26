@@ -9,11 +9,11 @@ import "testing"
 
 func TestAuth(t *testing.T) {
 	key := "a test key"
-	a1 := NewTaa(key)
-	a2 := NewTaa(key)
+	a1 := NewEncryptAlgorithm(key)
+	a2 := NewEncryptAlgorithm(key)
 
-	a1.GenToken()
-	b1 := a1.GenCipherBlock(nil)
+	a1.GenerateToken()
+	b1 := a1.GenerateCipherBlock(nil)
 	t.Log("block 1:", b1)
 	if !a1.CheckSignature(b1) {
 		t.Fatal("check signature failed")
