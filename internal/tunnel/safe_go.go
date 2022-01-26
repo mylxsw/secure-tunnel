@@ -7,7 +7,7 @@ package tunnel
 
 import "github.com/mylxsw/asteria/log"
 
-func Recover() {
+func exceptionHandler() {
 	if err := recover(); err != nil {
 		log.Errorf("goroutine failed:%v", err)
 	}

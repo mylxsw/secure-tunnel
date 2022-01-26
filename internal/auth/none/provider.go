@@ -12,6 +12,6 @@ func (p Provider) Register(cc infra.Binder) {
 	cc.MustSingletonOverride(New)
 }
 
-func (p Provider) ShouldLoad(conf *config.Config) bool {
+func (p Provider) ShouldLoad(conf *config.Server) bool {
 	return str.InIgnoreCase(conf.AuthType, []string{"none"})
 }

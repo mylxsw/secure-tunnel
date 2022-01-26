@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mylxsw/asteria/log"
+	"github.com/mylxsw/secure-tunnel/internal/auth"
 	"net"
 	"sync"
 	"time"
@@ -16,70 +17,70 @@ import (
 
 var errPeerClosed = errors.New("errPeerClosed")
 
-type link struct {
-	id   uint16
-	conn *net.TCPConn
-	wbuf *Buffer // write buffer
+type Link struct {
+	id          uint16
+	conn        *net.TCPConn
+	writeBuffer *Buffer // write buffer
 
 	lock sync.Mutex // protects below fields
-	rerr error      // if read closed, error to give reads
+	err  error      // if read closed, error to give reads
 }
 
-// set rerr
-func (l *link) setRerr(err error) bool {
+// set err
+func (l *Link) setError(err error) bool {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	if l.rerr != nil {
+	if l.err != nil {
 		return false
 	}
 
-	l.rerr = err
+	l.err = err
 	return true
 }
 
-// stop read data from link
-func (l *link) rclose() bool {
-	return l.setRerr(errPeerClosed)
+// closeRead stop read data from Link
+func (l *Link) closeRead() bool {
+	return l.setError(errPeerClosed)
 }
 
-// stop write data into link
-func (l *link) wclose() bool {
-	return l.wbuf.Close()
+// closeWrite stop write data into Link
+func (l *Link) closeWrite() bool {
+	return l.writeBuffer.Close()
 }
 
-// close link
-func (l *link) aclose() {
-	l.rclose()
-	l.wclose()
+// close Link
+func (l *Link) close() {
+	l.closeRead()
+	l.closeWrite()
 }
 
-// read data from link
-func (l *link) read() ([]byte, error) {
-	if l.rerr != nil {
-		return nil, l.rerr
+// read data from Link
+func (l *Link) read() ([]byte, error) {
+	if l.err != nil {
+		return nil, l.err
 	}
 	b := mpool.Get()
 	n, err := l.conn.Read(b)
 	if err != nil {
-		l.setRerr(err)
-		return nil, l.rerr
+		l.setError(err)
+		return nil, l.err
 	}
-	if l.rerr != nil {
-		return nil, l.rerr
+	if l.err != nil {
+		return nil, l.err
 	}
 	return b[:n], nil
 }
 
-// write data into link
-func (l *link) write(b []byte) bool {
-	return l.wbuf.Put(b)
+// write data into Link
+func (l *Link) write(b []byte) bool {
+	return l.writeBuffer.Put(b)
 }
 
 // inject data low level connection
-func (l *link) _write() error {
+func (l *Link) _write() error {
 	for {
-		data, ok := l.wbuf.Pop()
+		data, ok := l.writeBuffer.Pop()
 		if !ok {
 			return errPeerClosed
 		}
@@ -93,78 +94,78 @@ func (l *link) _write() error {
 }
 
 // set low level connection
-func (l *link) setConn(conn *net.TCPConn) {
+func (l *Link) setConn(conn *net.TCPConn) {
 	if l.conn != nil {
-		panic(fmt.Errorf("link(%d) repeated set conn", l.id))
+		panic(fmt.Errorf("Link(%d) repeated set conn", l.id))
 	}
 	l.conn = conn
 }
 
 // hub function
-func (h *Hub) getLink(id uint16) *link {
+func (h *Hub) getLink(id uint16) *Link {
 	h.ll.RLock()
 	defer h.ll.RUnlock()
 	return h.links[id]
 }
 
 func (h *Hub) deleteLink(id uint16) {
-	log.Infof("link(%d) delete", id)
+	log.Infof("Link(%d) delete", id)
 	h.ll.Lock()
 	defer h.ll.Unlock()
 	delete(h.links, id)
 }
 
-func (h *Hub) createLink(id uint16) *link {
-	log.Infof("link(%d) new link over %s", id, h.tunnel)
+func (h *Hub) createLink(id uint16) *Link {
+	log.Infof("Link(%d) new Link over %s", id, h.tunnel)
 	h.ll.Lock()
 	defer h.ll.Unlock()
 	if _, ok := h.links[id]; ok {
-		log.Errorf("link(%d) repeated over %s", id, h.tunnel)
+		log.Errorf("Link(%d) repeated over %s", id, h.tunnel)
 		return nil
 	}
-	l := &link{
-		id:   id,
-		wbuf: NewBuffer(16),
+	l := &Link{
+		id:          id,
+		writeBuffer: NewBuffer(16),
 	}
 	h.links[id] = l
 	return l
 }
 
-func (h *Hub) startLink(l *link, conn *net.TCPConn, currentUser string) {
-	conn.SetKeepAlive(true)
-	conn.SetKeepAlivePeriod(time.Second * 60)
-	l.setConn(conn)
+func (h *Hub) startLink(link *Link, conn *net.TCPConn, authedUser *auth.AuthedUser) {
+	_ = conn.SetKeepAlive(true)
+	_ = conn.SetKeepAlivePeriod(time.Second * 60)
+	link.setConn(conn)
 
-	log.Infof("link(%d) start, user=%s, remote=%v", l.id, currentUser, conn.RemoteAddr())
+	log.With(authedUser).Infof("Link(%d) start %v", link.id, conn.RemoteAddr())
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer l.conn.CloseRead()
+		defer func() { _ = link.conn.CloseRead() }()
 
 		for {
-			data, err := l.read()
+			data, err := link.read()
 			if err != nil {
 				if err != errPeerClosed {
-					h.SendCmd(l.id, LINK_CLOSE_SEND)
+					h.sendCommand(link.id, LinkCloseSend)
 				}
 				break
 			}
 
-			h.Send(l.id, data)
+			h.send(link.id, data)
 		}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer l.conn.CloseWrite()
+		defer func() { _ = link.conn.CloseWrite() }()
 
-		err := l._write()
+		err := link._write()
 		if err != errPeerClosed {
-			h.SendCmd(l.id, LINK_CLOSE_RECV)
+			h.sendCommand(link.id, LinkCloseRecv)
 		}
 	}()
 	wg.Wait()
-	log.Infof("link(%d) close", l.id)
+	log.Infof("Link(%d) close", link.id)
 }

@@ -19,14 +19,14 @@ func (l *TcpListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn.SetKeepAlive(true)
-	conn.SetKeepAlivePeriod(KeepalivePeriod)
+	_ = conn.SetKeepAlive(true)
+	_ = conn.SetKeepAlivePeriod(KeepalivePeriod)
 	return conn, err
 }
 
 // create a tcp listener for server
-func newTcpListener(laddr string) (net.Listener, error) {
-	ln, err := net.Listen("tcp", laddr)
+func newTcpListener(addr string) (net.Listener, error) {
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -35,13 +35,13 @@ func newTcpListener(laddr string) (net.Listener, error) {
 }
 
 // for client
-func dialTcp(raddr string) (net.Conn, error) {
-	conn, err := net.DialTimeout("tcp", raddr, 5*time.Second)
+func dialTcp(addr string) (net.Conn, error) {
+	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
 	tcpConn := conn.(*net.TCPConn)
-	tcpConn.SetKeepAlive(true)
-	tcpConn.SetKeepAlivePeriod(KeepalivePeriod)
+	_ = tcpConn.SetKeepAlive(true)
+	_ = tcpConn.SetKeepAlivePeriod(KeepalivePeriod)
 	return tcpConn, nil
 }

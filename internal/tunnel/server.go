@@ -7,76 +7,76 @@ package tunnel
 
 import (
 	"github.com/mylxsw/asteria/log"
+	"github.com/mylxsw/glacier/infra"
+	"github.com/mylxsw/secure-tunnel/internal/auth"
 	"net"
 )
 
-// server hub
 type ServerHub struct {
 	*Hub
-	baddr       *net.TCPAddr
-	currentUser string
+	backend    *net.TCPAddr
+	authedUser *auth.AuthedUser
 }
 
-func (h *ServerHub) handleLink(l *link) {
-	defer Recover()
+func (h *ServerHub) handleLink(l *Link) {
+	defer exceptionHandler()
 	defer h.deleteLink(l.id)
 
-	conn, err := net.DialTCP("tcp", nil, h.baddr)
+	conn, err := net.DialTCP("tcp", nil, h.backend)
 	if err != nil {
-		log.Errorf("link(%d) connect to serverAddr failed, err:%v", l.id, err)
-		h.SendCmd(l.id, LINK_CLOSE)
+		log.Errorf("Link(%d) connect to serverAddr failed, err:%v", l.id, err)
+		h.sendCommand(l.id, LinkClose)
 		h.deleteLink(l.id)
 		return
 	}
 
-	h.startLink(l, conn, h.currentUser)
+	h.startLink(l, conn, h.authedUser)
 }
 
-func (h *ServerHub) onCtrl(cmd Cmd) bool {
-	id := cmd.Id
-	switch cmd.Cmd {
-	case LINK_CREATE:
+func (h *ServerHub) onCtrl(cmd Command) bool {
+	id := cmd.id
+	switch cmd.cmd {
+	case LinkCreate:
 		l := h.createLink(id)
 		if l != nil {
 			go h.handleLink(l)
 		} else {
-			h.SendCmd(id, LINK_CLOSE)
+			h.sendCommand(id, LinkClose)
 		}
 		return true
-	case TUN_HEARTBEAT:
-		h.SendCmd(id, TUN_HEARTBEAT)
+	case TunHeartbeat:
+		h.sendCommand(id, TunHeartbeat)
 		return true
 	}
 	return false
 }
 
-func newServerHub(tunnel *Tunnel, baddr *net.TCPAddr, currentUser string) *ServerHub {
+func newServerHub(tunnel *Tunnel, backend *net.TCPAddr, authedUser *auth.AuthedUser) *ServerHub {
 	h := &ServerHub{
-		Hub:         newHub(tunnel),
-		baddr:       baddr,
-		currentUser: currentUser,
+		Hub:        newHub(tunnel),
+		backend:    backend,
+		authedUser: authedUser,
 	}
 	h.Hub.onCtrlFilter = h.onCtrl
 	return h
 }
 
-// tunnel server
 type Server struct {
-	ln           net.Listener
-	backendConns map[string]*net.TCPAddr
-	secret       string
+	listener net.Listener
+	backends map[string]*net.TCPAddr
+	secret   string
 }
 
-func (s *Server) handleConn(conn net.Conn) {
-	defer conn.Close()
-	defer Recover()
+func (s *Server) handleConnection(conn net.Conn, author auth.Author) {
+	defer func() { _ = conn.Close() }()
+	defer exceptionHandler()
 
 	tunnel := newTunnel(conn)
 	// authenticate connection
-	a := NewEncryptAlgorithm(s.secret)
-	a.GenerateToken()
+	a := newEncryptAlgorithm(s.secret)
+	a.generateToken()
 
-	challenge := a.GenerateCipherBlock(nil)
+	challenge := a.generateCipherBlock(nil)
 	if err := tunnel.WritePacket(0, challenge); err != nil {
 		log.Errorf("write challenge failed(%v):%s", tunnel, err)
 		return
@@ -102,63 +102,61 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 
 	username, password, backend := parseAuthPacket(authPacket)
-	if !s.ValidateUser(username, password) {
+	authedUser, err := author.Login(username, password)
+	if err != nil {
 		log.Errorf("invalid password for user %s", username)
 		return
 	}
 
-	if backend, ok := s.backendConns[backend]; ok {
-		h := newServerHub(tunnel, backend, username)
+	if backend, ok := s.backends[backend]; ok {
+		h := newServerHub(tunnel, backend, authedUser)
 		h.Start()
 	}
 }
 
-func (s *Server) ValidateUser(username, password string) bool {
-	return username == "guanyiyao" && password == "123456"
-}
+func (s *Server) Start(resolver infra.Resolver) error {
+	return resolver.ResolveWithError(func(author auth.Author) error {
+		defer func() { _ = s.listener.Close() }()
 
-func (s *Server) Start() error {
-	defer s.ln.Close()
-	for {
-		conn, err := s.ln.Accept()
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
-				log.Warningf("accept failed temporary: %s", netErr.Error())
-				continue
-			} else {
-				return err
+		for {
+			conn, err := s.listener.Accept()
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
+					log.Warningf("accept failed temporary: %s", netErr.Error())
+					continue
+				} else {
+					return err
+				}
 			}
+			log.Warningf("new connection from %v", conn.RemoteAddr())
+			go s.handleConnection(conn, author)
 		}
-		log.Warningf("new connection from %v", conn.RemoteAddr())
-		go s.handleConn(conn)
-	}
+	})
 }
 
 func (s *Server) Status() {
 }
 
-// create a tunnel server
+// NewServer create a tunnel server
 func NewServer(listen string, backends []string, secret string) (*Server, error) {
 	ln, err := newListener(listen)
 	if err != nil {
 		return nil, err
 	}
 
-	backendConns := make(map[string]*net.TCPAddr)
-
+	backendAddrs := make(map[string]*net.TCPAddr)
 	for _, backend := range backends {
-		baddr, err := net.ResolveTCPAddr("tcp", backend)
+		addr, err := net.ResolveTCPAddr("tcp", backend)
 		if err != nil {
 			return nil, err
 		}
 
-		backendConns[backend] = baddr
+		backendAddrs[backend] = addr
 	}
 
-	s := &Server{
-		ln:           ln,
-		backendConns: backendConns,
-		secret:       secret,
-	}
-	return s, nil
+	return &Server{
+		listener: ln,
+		backends: backendAddrs,
+		secret:   secret,
+	}, nil
 }

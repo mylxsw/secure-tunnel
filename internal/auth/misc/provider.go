@@ -14,6 +14,6 @@ func (p Provider) Register(cc infra.Binder) {
 	log.Debugf("provider internal.auth.misc loaded")
 }
 
-func (p Provider) ShouldLoad(config *config.Config) bool {
+func (p Provider) ShouldLoad(config *config.Server) bool {
 	return str.InIgnoreCase(config.AuthType, []string{"misc"})
 }

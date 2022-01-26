@@ -9,7 +9,7 @@ import "github.com/mylxsw/asteria/log"
 
 type HubItem struct {
 	*ClientHub
-	priority int // current link count
+	priority int // current Link count
 	index    int // index in the heap
 }
 

@@ -66,7 +66,7 @@ type EncryptAlgorithm struct {
 	token authToken
 }
 
-func NewEncryptAlgorithm(key string) *EncryptAlgorithm {
+func newEncryptAlgorithm(key string) *EncryptAlgorithm {
 	token := sha256.Sum256([]byte(key))
 	block, _ := aes.NewCipher(token[:TaaTokenSize])
 	mac := hmac.New(md5.New, token[TaaTokenSize:])
@@ -80,14 +80,14 @@ func init() {
 	rand.Seed(time.Now().Unix())
 }
 
-// GenerateToken generate new token
-func (a *EncryptAlgorithm) GenerateToken() {
+// generateToken generate new token
+func (a *EncryptAlgorithm) generateToken() {
 	a.token.challenge = uint64(rand.Int63())
 	a.token.timestamp = uint64(time.Now().UnixNano())
 }
 
-// GenerateCipherBlock generate cipher block
-func (a *EncryptAlgorithm) GenerateCipherBlock(token *authToken) []byte {
+// generateCipherBlock generate cipher block
+func (a *EncryptAlgorithm) generateCipherBlock(token *authToken) []byte {
 	if token == nil {
 		token = &a.token
 	}
@@ -125,7 +125,7 @@ func (a *EncryptAlgorithm) ExchangeCipherBlock(src []byte) ([]byte, bool) {
 
 	// complement challenge
 	token := a.token.complement()
-	return a.GenerateCipherBlock(&token), true
+	return a.generateCipherBlock(&token), true
 }
 
 // VerifyCipherBlock verify cipher block

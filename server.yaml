@@ -1,0 +1,42 @@
+listen: :8080
+secret: Zc4z-n1dd-6qu
+verbose: false
+auth_type: local
+log_path: ""
+
+backends:
+  - 10.22.1.21:3306
+  - 10.22.1.22:6379
+
+ldap:
+  url: ldap://127.0.0.1:389
+  base_dn: dc=example,dc=com
+  username: admin
+  password: admin
+  display_name: displayName
+  uid: sAMAccountName
+  user_filter: CN=all-staff,CN=Users,DC=example,DC=com
+
+users:
+  ignore_account_suffix: "@example.com"
+  local:
+    - username: admin
+      password: admin
+      groups:
+        - admin
+    - username: basic
+      password: YmFzaWM=
+      algo: base64
+      groups:
+        - vistor
+    - username: editor
+      password: $2a$10$z.5uqyBDoqiCfLwccizy2ee5pRLhYPy/sDD.NReKLByKH/YzQFJNS
+      algo: bcrypt
+      groups:
+        - editor
+    - account: guanyiyao
+      password: guanyiyao
+    - account: xiaoming
+      password: xiaoming
+      groups:
+        - vistor

@@ -4,23 +4,23 @@
 //
 package tunnel
 
-type IdAllocator struct {
+type IDAllocator struct {
 	freeList chan uint16
 }
 
-func (alloc *IdAllocator) Acquire() uint16 {
+func (alloc *IDAllocator) Acquire() uint16 {
 	return <-alloc.freeList
 }
 
-func (alloc *IdAllocator) Release(id uint16) {
+func (alloc *IDAllocator) Release(id uint16) {
 	alloc.freeList <- id
 }
 
-func newAllocator() *IdAllocator {
+func newIDAllocator() *IDAllocator {
 	freeList := make(chan uint16, MaxID)
 	var id uint16
 	for id = 1; id != MaxID; id++ {
 		freeList <- id
 	}
-	return &IdAllocator{freeList: freeList}
+	return &IDAllocator{freeList: freeList}
 }

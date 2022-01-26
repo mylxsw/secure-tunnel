@@ -9,10 +9,10 @@ import (
 	"net"
 )
 
-func newListener(laddr string) (net.Listener, error) {
-	return newTcpListener(laddr)
+func newListener(addr string) (net.Listener, error) {
+	return newTcpListener(addr)
 }
 
-func dial(raddr string) (net.Conn, error) {
-	return dialTcp(raddr)
+func dial(addr string) (net.Conn, error) {
+	return dialTcp(addr)
 }
