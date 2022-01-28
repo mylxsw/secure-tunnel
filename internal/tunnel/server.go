@@ -6,6 +6,7 @@
 package tunnel
 
 import (
+	"context"
 	"github.com/mylxsw/asteria/log"
 	"github.com/mylxsw/glacier/infra"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
@@ -34,8 +35,8 @@ func (h *ServerHub) handleLink(l *Link) {
 }
 
 func (h *ServerHub) onCtrl(cmd Command) bool {
-	id := cmd.id
-	switch cmd.cmd {
+	id := cmd.ID
+	switch cmd.Cmd {
 	case LinkCreate:
 		l := h.createLink(id)
 		if l != nil {
@@ -114,22 +115,27 @@ func (s *Server) handleConnection(conn net.Conn, author auth.Author) {
 	}
 }
 
-func (s *Server) Start(resolver infra.Resolver) error {
+func (s *Server) Start(ctx context.Context, resolver infra.Resolver) error {
 	return resolver.ResolveWithError(func(author auth.Author) error {
 		defer func() { _ = s.listener.Close() }()
 
 		for {
-			conn, err := s.listener.Accept()
-			if err != nil {
-				if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
-					log.Warningf("accept failed temporary: %s", netErr.Error())
-					continue
-				} else {
-					return err
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				conn, err := s.listener.Accept()
+				if err != nil {
+					if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
+						log.Warningf("accept failed temporary: %s", netErr.Error())
+						continue
+					} else {
+						return err
+					}
 				}
+				log.Warningf("new connection from %v", conn.RemoteAddr())
+				go s.handleConnection(conn, author)
 			}
-			log.Warningf("new connection from %v", conn.RemoteAddr())
-			go s.handleConnection(conn, author)
 		}
 	})
 }

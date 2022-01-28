@@ -1,12 +1,8 @@
-//
-//   date  : 2014-07-16
-//   author: xjdrew
-//
-
 package tunnel
 
 import (
 	"container/heap"
+	"context"
 	"errors"
 	"github.com/mylxsw/asteria/log"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
@@ -33,15 +29,14 @@ func (h *ClientHub) heartbeat() {
 		maxSpan = tunnelMinSpan
 	}
 
-	if log.DebugEnabled() {
-		log.Debugf("maxspan: %d", maxSpan)
-	}
-
 	for range ticker.C {
-		// id overflow
+		// ID overflow
 		span := 0xffff - h.received + h.sent + 1
 		if int(span) >= maxSpan {
-			log.Errorf("tunnel(%v) timeout, sent:%d, received:%d", h.Hub.tunnel, h.sent, h.received)
+			log.F(log.M{
+				"span":     span,
+				"max_span": maxSpan,
+			}).Errorf("tunnel(%v) timeout, sent:%d, received:%d", h.Hub.tunnel, h.sent, h.received)
 			h.Hub.Close()
 			break
 		}
@@ -54,8 +49,8 @@ func (h *ClientHub) heartbeat() {
 }
 
 func (h *ClientHub) onCtrl(cmd Command) bool {
-	id := cmd.id
-	switch cmd.cmd {
+	id := cmd.ID
+	switch cmd.Cmd {
 	case TunHeartbeat:
 		h.received = id
 		return true
@@ -175,66 +170,79 @@ func (cli *Client) handleConnection(hub *HubItem, conn *net.TCPConn) {
 	h.startLink(l, conn, &auth.AuthedUser{Account: cli.conf.Username})
 }
 
-func (cli *Client) listen() error {
+func (cli *Client) listen(ctx context.Context) error {
 	ln, err := net.Listen("tcp", cli.backend.Listen)
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		_ = ln.Close()
-	}()
+	defer func() { _ = ln.Close() }()
 
 	tcpListener := ln.(*net.TCPListener)
 	for {
-		conn, err := tcpListener.AcceptTCP()
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
-				log.Warningf("accept failed temporary: %s", netErr.Error())
-				continue
-			} else {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			conn, err := tcpListener.AcceptTCP()
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
+					log.Warningf("accept failed temporary: %s", netErr.Error())
+					continue
+				}
 				return err
 			}
-		}
-		log.Infof("new connection from %v", conn.RemoteAddr())
-		hub := cli.fetchHub()
-		if hub == nil {
-			log.Errorf("no active hub")
-			_ = conn.Close()
-			continue
-		}
 
-		_ = conn.SetKeepAlive(true)
-		_ = conn.SetKeepAlivePeriod(time.Second * 60)
-		go cli.handleConnection(hub, conn)
+			log.Infof("new connection from %v", conn.RemoteAddr())
+
+			hub := cli.fetchHub()
+			if hub == nil {
+				log.Errorf("no active hub")
+				_ = conn.Close()
+				continue
+			}
+
+			_ = conn.SetKeepAlive(true)
+			_ = conn.SetKeepAlivePeriod(time.Second * 60)
+			go cli.handleConnection(hub, conn)
+		}
 	}
 }
 
 // Start .
-func (cli *Client) Start() error {
-	sz := cap(cli.cq)
-	for i := 0; i < sz; i++ {
+func (cli *Client) Start(ctx context.Context) error {
+	for i := 0; i < cap(cli.cq); i++ {
 		go func(index int) {
 			defer exceptionHandler()
 
 			for {
-				hub, err := cli.createHub()
-				if err != nil {
-					log.Errorf("tunnel %d reconnect failed", index)
-					time.Sleep(time.Second * 3)
-					continue
-				}
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					hub, err := cli.createHub()
+					if err != nil {
+						log.Errorf("tunnel %d reconnect failed", index)
+						time.Sleep(time.Second * 15)
+						continue
+					}
 
-				log.Errorf("tunnel %d connect succeed", index)
-				cli.addHub(hub)
-				hub.Start()
-				cli.removeHub(hub)
-				log.Errorf("tunnel %d disconnected", index)
+					func() {
+						log.Debugf("tunnel %d connect succeed", index)
+						defer func() {
+							cli.removeHub(hub)
+							log.Warningf("tunnel %d disconnected", index)
+						}()
+
+						cli.addHub(hub)
+						hub.Start()
+					}()
+				}
 			}
 		}(i)
 	}
 
-	return cli.listen()
+	return cli.listen(ctx)
 }
 
 func (cli *Client) Status() {

@@ -27,7 +27,7 @@ func (p ClientProvider) Daemon(ctx context.Context, app infra.Resolver) {
 					return
 				}
 
-				if err := client.Start(); err != nil {
+				if err := client.Start(ctx); err != nil {
 					log.With(backend).Errorf("client started failed: %v", err)
 				}
 			}(backend)
@@ -47,6 +47,6 @@ func (p ServerProvider) Register(app infra.Binder) {
 
 func (p ServerProvider) Daemon(ctx context.Context, app infra.Resolver) {
 	app.MustResolve(func(server *Server) error {
-		return server.Start(app)
+		return server.Start(ctx, app)
 	})
 }

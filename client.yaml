@@ -3,12 +3,12 @@ secret: Zc4z-n1dd-6qu
 verbose: false
 username: admin
 password: admin
-tunnels: 3
+tunnels: 1
 log_path: ""
 
 backends:
-  - backend: 10.22.1.21:3306
+  - backend: 10.22.1.103:3306
     listen: 127.0.0.1:3306
-  - backend: 10.22.1.22:6379
+  - backend: 10.22.1.103:6379
     listen: 127.0.0.1:6379
 

@@ -77,5 +77,11 @@ func (conf Server) validate() error {
 		return fmt.Errorf("invalid auth_type: must be one of misc|local|ldap")
 	}
 
+	for i, user := range conf.Users.Local {
+		if user.Account == "" {
+			return fmt.Errorf("invalid users.local[%d], account is required", i)
+		}
+	}
+
 	return nil
 }

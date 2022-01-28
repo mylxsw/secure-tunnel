@@ -5,10 +5,16 @@
 
 package tunnel
 
-import "github.com/mylxsw/asteria/log"
+import (
+	"github.com/mylxsw/asteria/log"
+	"runtime"
+)
 
 func exceptionHandler() {
 	if err := recover(); err != nil {
-		log.Errorf("goroutine failed:%v", err)
+		buf := make([]byte, 32768)
+		runtime.Stack(buf, true)
+
+		log.Errorf("goroutine failed: %v, stack: %s", err, string(buf))
 	}
 }

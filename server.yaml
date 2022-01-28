@@ -5,8 +5,8 @@ auth_type: local
 log_path: ""
 
 backends:
-  - 10.22.1.21:3306
-  - 10.22.1.22:6379
+  - 10.22.1.103:3306
+  - 10.22.1.103:6379
 
 ldap:
   url: ldap://127.0.0.1:389
@@ -20,16 +20,16 @@ ldap:
 users:
   ignore_account_suffix: "@example.com"
   local:
-    - username: admin
+    - account: admin
       password: admin
       groups:
         - admin
-    - username: basic
+    - account: basic
       password: YmFzaWM=
       algo: base64
       groups:
         - vistor
-    - username: editor
+    - account: editor
       password: $2a$10$z.5uqyBDoqiCfLwccizy2ee5pRLhYPy/sDD.NReKLByKH/YzQFJNS
       algo: bcrypt
       groups:

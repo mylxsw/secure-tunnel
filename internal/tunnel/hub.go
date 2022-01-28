@@ -22,8 +22,8 @@ const (
 )
 
 type Command struct {
-	cmd uint8  // control command
-	id  uint16 // id
+	Cmd uint8  // control command
+	ID  uint16 // ID
 }
 
 type Hub struct {
@@ -38,16 +38,16 @@ type Hub struct {
 func (h *Hub) sendCommand(id uint16, cmd uint8) bool {
 	buf := bytes.NewBuffer(mpool.Get()[0:0])
 	c := Command{
-		cmd: cmd,
-		id:  id,
+		Cmd: cmd,
+		ID:  id,
 	}
 	_ = binary.Write(buf, binary.LittleEndian, &c)
 
-	if cmd == TunHeartbeat {
-		log.Debugf("%s send heartbeat: %d", h.tunnel, id)
-	} else {
-		log.Infof("Link(%d) send cmd:%d", id, cmd)
-	}
+	//if cmd == TunHeartbeat {
+	//	log.Debugf("%s send heartbeat: %d", h.tunnel, id)
+	//} else {
+	//	log.Infof("Link(%d) send Cmd:%d", id, cmd)
+	//}
 
 	return h.send(0, buf.Bytes())
 }
@@ -61,24 +61,22 @@ func (h *Hub) send(id uint16, data []byte) bool {
 }
 
 func (h *Hub) onCtrl(cmd Command) {
-	if cmd.cmd == TunHeartbeat {
-		log.Debugf("%s recv heartbeat: %d", h.tunnel, cmd.id)
-	} else {
-		log.Infof("Link(%d) recv cmd:%d", cmd.id, cmd.cmd)
+	if cmd.Cmd != TunHeartbeat {
+		log.Debugf("Link(%d) recv cmd:%d", cmd.ID, cmd.Cmd)
 	}
 
 	if h.onCtrlFilter != nil && h.onCtrlFilter(cmd) {
 		return
 	}
 
-	id := cmd.id
+	id := cmd.ID
 	l := h.getLink(id)
 	if l == nil {
-		log.Errorf("Link(%d) recv cmd:%d, no Link", id, cmd.cmd)
+		log.Errorf("Link(%d) recv Cmd:%d, no Link", id, cmd.Cmd)
 		return
 	}
 
-	switch cmd.cmd {
+	switch cmd.Cmd {
 	case LinkClose:
 		l.close()
 	case LinkCloseRecv:
@@ -86,12 +84,12 @@ func (h *Hub) onCtrl(cmd Command) {
 	case LinkCloseSend:
 		l.closeWrite()
 	default:
-		log.Errorf("Link(%d) receive unknown cmd:%v", id, cmd)
+		log.Errorf("Link(%d) receive unknown Cmd:%v", id, cmd)
 	}
 }
 
 func (h *Hub) onData(id uint16, data []byte) {
-	log.Infof("Link(%d) recv %d bytes data", id, len(data))
+	//log.Debugf("Link(%d) recv %d bytes data: %s", id, len(data), string(data))
 
 	link := h.getLink(id)
 	if link == nil {

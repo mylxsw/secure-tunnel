@@ -23,8 +23,9 @@ var GitCommit = "5dbef13fb456f51a5d29464d"
 
 func main() {
 	log.All().LogFormatter(formatter.NewJSONFormatter())
+	log.All().WithFileLine(true)
 
-	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit))
+	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport()
 
 	app.AddStringFlag("conf", "server.yaml", "服务器配置文件")
 	app.Singleton(func(c infra.FlagContext) (*config.Server, error) {
