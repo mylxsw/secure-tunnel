@@ -1,6 +1,7 @@
 server: 127.0.0.1:8080
 secret: Zc4z-n1dd-6qu
 verbose: false
+# username 和 password 为空时，将通过命令行提示录入
 #username: admin
 #password: admin
 tunnels: 1

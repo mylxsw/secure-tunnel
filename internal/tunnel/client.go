@@ -4,7 +4,9 @@ import (
 	"container/heap"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/mylxsw/asteria/log"
+	"github.com/mylxsw/graceful"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
 	"github.com/mylxsw/secure-tunnel/internal/config"
 	"net"
@@ -81,16 +83,25 @@ type Client struct {
 	lock  sync.Mutex
 }
 
-func (cli *Client) createHub() (hub *HubItem, err error) {
+func (cli *Client) createHub(gf graceful.Graceful) (hub *HubItem, err error) {
+	defer func() {
+		if err2 := recover(); err2 != nil {
+			err = fmt.Errorf("create client hub failed: %v", err2)
+			log.Errorf("%v", err)
+			gf.Shutdown()
+		}
+	}()
+
 	conn, err := dial(cli.serverAddr)
 	if err != nil {
+		panic(fmt.Errorf("dial failed: %v", err))
 		return
 	}
 
 	tunnel := newTunnel(conn)
 	_, challenge, err := tunnel.ReadPacket()
 	if err != nil {
-		log.Errorf("read challenge failed(%v):%s", tunnel, err)
+		panic(fmt.Errorf("read challenge failed(%v):%s", tunnel, err))
 		return
 	}
 
@@ -98,25 +109,36 @@ func (cli *Client) createHub() (hub *HubItem, err error) {
 	token, ok := a.ExchangeCipherBlock(challenge)
 	if !ok {
 		err = errors.New("exchange challenge failed")
-		log.Errorf("exchange challenge failed(%v)", tunnel)
+		panic(fmt.Errorf("exchange challenge failed(%v)", tunnel))
 		return
 	}
 
 	if err = tunnel.WritePacket(0, token); err != nil {
-		log.Errorf("write token failed(%v):%s", tunnel, err)
+		panic(fmt.Errorf("write token failed(%v):%s", tunnel, err))
 		return
 	}
 
 	tunnel.SetCipherKey(a.GetRc4key())
 
 	if err = tunnel.WritePacket(0, buildAuthPacket(cli.conf.Username, cli.conf.Password, cli.backend.Backend)); err != nil {
-		log.Errorf("write username & password failed(%v):%s", tunnel, err)
+		panic(fmt.Errorf("write username & password failed(%v):%s", tunnel, err))
 		return
+	}
+
+	_, authedPacket, err := tunnel.ReadPacket()
+	if err != nil {
+		panic(fmt.Errorf("auth failed(%v):%s", tunnel, err))
+		return
+	}
+
+	if string(authedPacket) != "ok" {
+		panic(fmt.Errorf("auth failed: %s", string(authedPacket)))
 	}
 
 	hub = &HubItem{
 		ClientHub: newClientHub(tunnel),
 	}
+
 	return
 }
 
@@ -210,7 +232,7 @@ func (cli *Client) listen(ctx context.Context) error {
 }
 
 // Start .
-func (cli *Client) Start(ctx context.Context) error {
+func (cli *Client) Start(ctx context.Context, gf graceful.Graceful) error {
 	for i := 0; i < cap(cli.cq); i++ {
 		go func(index int) {
 			defer exceptionHandler()
@@ -220,7 +242,7 @@ func (cli *Client) Start(ctx context.Context) error {
 				case <-ctx.Done():
 					return
 				default:
-					hub, err := cli.createHub()
+					hub, err := cli.createHub(gf)
 					if err != nil {
 						log.Errorf("tunnel %d reconnect failed", index)
 						time.Sleep(time.Second * 15)

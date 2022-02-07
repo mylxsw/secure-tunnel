@@ -7,6 +7,7 @@ package tunnel
 
 import (
 	"context"
+	"fmt"
 	"github.com/mylxsw/asteria/log"
 	"github.com/mylxsw/glacier/infra"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
@@ -112,6 +113,12 @@ func (s *Server) handleConnection(conn net.Conn, author auth.Author) {
 	authedUser, err := author.Login(username, password)
 	if err != nil {
 		log.Errorf("invalid password for user %s", username)
+		_ = tunnel.WritePacket(0, []byte(fmt.Sprintf("error: invalid password for user %s: %v", username, err)))
+		return
+	}
+
+	if err := tunnel.WritePacket(0, []byte("ok")); err != nil {
+		log.Errorf("write authed packet to client failed: %v", err)
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/mylxsw/asteria/log"
 	"github.com/mylxsw/glacier/infra"
+	"github.com/mylxsw/graceful"
 	"github.com/mylxsw/secure-tunnel/internal/config"
 	"sync"
 )
@@ -14,7 +15,7 @@ func (p ClientProvider) Register(app infra.Binder) {
 }
 
 func (p ClientProvider) Daemon(ctx context.Context, app infra.Resolver) {
-	app.MustResolve(func(conf *config.Client) {
+	app.MustResolve(func(conf *config.Client, gf graceful.Graceful) {
 		var wg sync.WaitGroup
 		wg.Add(len(conf.Backends))
 		for _, backend := range conf.Backends {
@@ -27,7 +28,7 @@ func (p ClientProvider) Daemon(ctx context.Context, app infra.Resolver) {
 					return
 				}
 
-				if err := client.Start(ctx); err != nil {
+				if err := client.Start(ctx, gf); err != nil {
 					log.With(backend).Errorf("client started failed: %v", err)
 				}
 			}(backend)
