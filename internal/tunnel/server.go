@@ -10,12 +10,13 @@ import (
 	"github.com/mylxsw/asteria/log"
 	"github.com/mylxsw/glacier/infra"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
+	"github.com/mylxsw/secure-tunnel/internal/config"
 	"net"
 )
 
 type ServerHub struct {
 	*Hub
-	backend    *net.TCPAddr
+	backend    *Backend
 	authedUser *auth.AuthedUser
 }
 
@@ -23,7 +24,7 @@ func (h *ServerHub) handleLink(l *Link) {
 	defer exceptionHandler()
 	defer h.deleteLink(l.id)
 
-	conn, err := net.DialTCP("tcp", nil, h.backend)
+	conn, err := net.DialTCP("tcp", nil, h.backend.Addr)
 	if err != nil {
 		log.Errorf("Link(%d) connect to serverAddr failed, err:%v", l.id, err)
 		h.sendCommand(l.id, LinkClose)
@@ -52,7 +53,7 @@ func (h *ServerHub) onCtrl(cmd Command) bool {
 	return false
 }
 
-func newServerHub(tunnel *Tunnel, backend *net.TCPAddr, authedUser *auth.AuthedUser) *ServerHub {
+func newServerHub(tunnel *Tunnel, backend *Backend, authedUser *auth.AuthedUser) *ServerHub {
 	h := &ServerHub{
 		Hub:        newHub(tunnel),
 		backend:    backend,
@@ -64,8 +65,13 @@ func newServerHub(tunnel *Tunnel, backend *net.TCPAddr, authedUser *auth.AuthedU
 
 type Server struct {
 	listener net.Listener
-	backends map[string]*net.TCPAddr
+	backends map[string]*Backend
 	secret   string
+}
+
+type Backend struct {
+	Addr    *net.TCPAddr
+	Backend config.BackendServer
 }
 
 func (s *Server) handleConnection(conn net.Conn, author auth.Author) {
@@ -144,20 +150,20 @@ func (s *Server) Status() {
 }
 
 // NewServer create a tunnel server
-func NewServer(listen string, backends []string, secret string) (*Server, error) {
+func NewServer(listen string, backends []config.BackendServer, secret string) (*Server, error) {
 	ln, err := newListener(listen)
 	if err != nil {
 		return nil, err
 	}
 
-	backendAddrs := make(map[string]*net.TCPAddr)
+	backendAddrs := make(map[string]*Backend)
 	for _, backend := range backends {
-		addr, err := net.ResolveTCPAddr("tcp", backend)
+		addr, err := net.ResolveTCPAddr("tcp", backend.Addr)
 		if err != nil {
 			return nil, err
 		}
 
-		backendAddrs[backend] = addr
+		backendAddrs[backend.Name] = &Backend{Addr: addr, Backend: backend}
 	}
 
 	return &Server{

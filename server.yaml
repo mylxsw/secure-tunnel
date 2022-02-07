@@ -5,8 +5,10 @@ auth_type: local
 log_path: ""
 
 backends:
-  - 10.22.1.103:3306
-  - 10.22.1.103:6379
+  - name: mysql-dev
+    addr: 10.22.1.103:3306
+  - name: redis-dev
+    addr: 10.22.1.103:6379
 
 ldap:
   url: ldap://127.0.0.1:389

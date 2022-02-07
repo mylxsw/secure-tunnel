@@ -38,9 +38,9 @@ func LoadServerConfFromFile(configPath string) (*Server, error) {
 }
 
 type Server struct {
-	Listen   string   `json:"listen" yaml:"listen"`
-	Backends []string `json:"backends" yaml:"backends"`
-	Secret   string   `json:"-" yaml:"secret"`
+	Listen   string          `json:"listen" yaml:"listen"`
+	Backends []BackendServer `json:"backends" yaml:"backends"`
+	Secret   string          `json:"-" yaml:"secret"`
 
 	Verbose  bool   `json:"verbose" yaml:"verbose,omitempty"`
 	AuthType string `json:"auth_type" yaml:"auth_type"`
@@ -48,6 +48,11 @@ type Server struct {
 
 	LDAP  LDAP  `json:"ldap" yaml:"ldap,omitempty"`
 	Users Users `json:"users,omitempty" yaml:"users,omitempty"`
+}
+
+type BackendServer struct {
+	Addr string `json:"addr" yaml:"addr"`
+	Name string `json:"name" yaml:"name"`
 }
 
 // populateDefault 填充默认值
@@ -66,6 +71,14 @@ func (conf Server) populateDefault() Server {
 
 	if conf.LDAP.UserFilter == "" {
 		conf.LDAP.UserFilter = "CN=all-staff,CN=Users,DC=example,DC=com"
+	}
+
+	for i, back := range conf.Backends {
+		if back.Name == "" {
+			back.Name = back.Addr
+		}
+
+		conf.Backends[i] = back
 	}
 
 	return conf

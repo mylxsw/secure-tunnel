@@ -1,14 +1,13 @@
 server: 127.0.0.1:8080
 secret: Zc4z-n1dd-6qu
 verbose: false
-username: admin
-password: admin
+#username: admin
+#password: admin
 tunnels: 1
 log_path: ""
 
 backends:
-  - backend: 10.22.1.103:3306
+  - backend: mysql-dev
     listen: 127.0.0.1:3306
-  - backend: 10.22.1.103:6379
+  - backend: redis-dev
     listen: 127.0.0.1:6379
-
