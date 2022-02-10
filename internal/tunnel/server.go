@@ -6,17 +6,14 @@
 package tunnel
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/mylxsw/asteria/log"
 	"github.com/mylxsw/glacier/infra"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
 	"github.com/mylxsw/secure-tunnel/internal/config"
-	"github.com/secmask/go-redisproto"
 )
 
 type ServerHub struct {
@@ -69,41 +66,12 @@ func newServerHub(tunnel *Tunnel, backend *Backend, authedUser *auth.AuthedUser)
 		switch backend.Backend.Protocol {
 		case "redis":
 			redisProtocolFilter(isResp, link, data, authedUser, backend)
+		case "mysql":
+			mysqlProtocolFilter(isResp, link, data, authedUser, backend)
 		default:
 		}
 	}
 	return h
-}
-
-func redisProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
-	if isResp {
-		if backend.Backend.LogResponse {
-			log.WithFields(log.Fields{
-				"user":    authedUser,
-				"backend": backend.Backend,
-				"link":    link.id,
-				"data":    string(data),
-			}).Info("audit:resp")
-		}
-	} else {
-		cmd, err := redisproto.NewParser(bytes.NewBuffer(data)).ReadCommand()
-		if err != nil {
-			log.With(authedUser).Errorf("parse redis protocol failed: %v", err)
-			return
-		}
-
-		strs := make([]string, 0)
-		for i := 0; i < cmd.ArgCount(); i++ {
-			strs = append(strs, string(cmd.Get(i)))
-		}
-
-		log.WithFields(log.Fields{
-			"user":    authedUser,
-			"backend": backend.Backend,
-			"link":    link.id,
-			"data":    strings.Join(strs, " "),
-		}).Info("audit:req")
-	}
 }
 
 type Server struct {

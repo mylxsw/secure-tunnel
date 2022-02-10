@@ -7,6 +7,7 @@ log_path: ""
 backends:
   - name: mysql-dev
     addr: 10.22.1.103:3306
+    protocol: mysql
   - name: redis-dev
     addr: 10.22.1.103:6379
     protocol: redis
