@@ -3,9 +3,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/mylxsw/go-utils/file"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
 )
 
 type Client struct {
@@ -26,6 +27,14 @@ type BackendPortMapping struct {
 
 // populateDefault 填充默认值
 func (conf Client) populateDefault() Client {
+	if conf.Tunnels == 0 {
+		conf.Tunnels = 1
+	}
+
+	if conf.Server == "" {
+		conf.Server = "127.0.0.1:8080"
+	}
+
 	return conf
 }
 

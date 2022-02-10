@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/mylxsw/asteria/level"
 	"github.com/mylxsw/asteria/log"
@@ -11,7 +13,6 @@ import (
 	"github.com/mylxsw/glacier/starter/application"
 	"github.com/mylxsw/secure-tunnel/internal/config"
 	"github.com/mylxsw/secure-tunnel/internal/tunnel"
-	"time"
 )
 
 var Version = "1.0"
@@ -26,6 +27,10 @@ func main() {
 	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport()
 
 	app.AddStringFlag("conf", "client.yaml", "服务器配置文件")
+	app.AddStringFlag("server", "", "server address")
+	app.AddStringFlag("secret", "", "server secret")
+	app.AddIntFlag("tunnels", 0, "tunnels")
+
 	app.Singleton(func(c infra.FlagContext) (*config.Client, error) {
 		conf, err := config.LoadClientConfFromFile(c.String("conf"))
 		if err != nil {
@@ -46,6 +51,18 @@ func main() {
 
 		if conf.Username == "" || conf.Password == "" {
 			panic(fmt.Errorf("username and password are required"))
+		}
+
+		if c.String("server") != "" {
+			conf.Server = c.String("server")
+		}
+
+		if c.String("secret") != "" {
+			conf.Secret = c.String("secret")
+		}
+
+		if c.Int("tunnels") != 0 {
+			conf.Tunnels = uint(c.Int("tunnels"))
 		}
 
 		return conf, err
