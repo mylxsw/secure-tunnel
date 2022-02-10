@@ -11,12 +11,12 @@ type Author interface {
 }
 
 type AuthedUser struct {
-	Type    string   `json:"type" yaml:"type"`
-	UUID    string   `json:"uuid" yaml:"uuid"`
-	Name    string   `json:"name" yaml:"name"`
-	Account string   `json:"account" yaml:"account"`
-	Groups  []string `json:"groups" yaml:"groups"`
-	Status  int8     `json:"status" yaml:"status"`
+	Type    string   `json:"type,omitempty" yaml:"type,omitempty"`
+	UUID    string   `json:"uuid,omitempty" yaml:"uuid,omitempty"`
+	Name    string   `json:"name,omitempty" yaml:"name,omitempty"`
+	Account string   `json:"account,omitempty" yaml:"account,omitempty"`
+	Groups  []string `json:"groups,omitempty" yaml:"groups,omitempty"`
+	Status  int8     `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 var ErrNoSuchUser = errors.New("user not found")

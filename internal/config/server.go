@@ -3,10 +3,11 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/mylxsw/go-utils/file"
 	"github.com/mylxsw/go-utils/str"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
 )
 
 // LoadServerConfFromFile 从配置文件加载配置
@@ -51,8 +52,10 @@ type Server struct {
 }
 
 type BackendServer struct {
-	Addr string `json:"addr" yaml:"addr"`
-	Name string `json:"name" yaml:"name"`
+	Addr        string `json:"addr" yaml:"addr"`
+	Name        string `json:"name" yaml:"name"`
+	Protocol    string `json:"protocol" yaml:"protocol"`
+	LogResponse bool   `json:"-" yaml:"log_response"`
 }
 
 // populateDefault 填充默认值
@@ -76,6 +79,10 @@ func (conf Server) populateDefault() Server {
 	for i, back := range conf.Backends {
 		if back.Name == "" {
 			back.Name = back.Addr
+		}
+
+		if back.Protocol == "" {
+			back.Protocol = "tcp"
 		}
 
 		conf.Backends[i] = back

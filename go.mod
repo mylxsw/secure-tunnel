@@ -3,17 +3,19 @@ module github.com/mylxsw/secure-tunnel
 go 1.17
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/go-ldap/ldap/v3 v3.4.1
 	github.com/google/uuid v1.3.0
 	github.com/mylxsw/asteria v0.0.0-20220111063217-62681432d744
 	github.com/mylxsw/glacier v0.0.0-20220124082550-678c7bd8707b
 	github.com/mylxsw/go-utils v0.0.0-20210720060419-1aac8fb9b538
+	github.com/mylxsw/graceful v0.0.0-20210318070625-a4a80fb77564
+	github.com/secmask/go-redisproto v0.1.0
 	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 )
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.2 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20200615164410-66371956d46c // indirect
 	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
@@ -26,7 +28,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mylxsw/container v0.0.0-20220124071232-4cf9cc678ad7 // indirect
-	github.com/mylxsw/graceful v0.0.0-20210318070625-a4a80fb77564 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/urfave/cli v1.22.5 // indirect
 	golang.org/x/sys v0.0.0-20210927094055-39ccf1dd6fa6 // indirect

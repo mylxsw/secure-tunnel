@@ -8,8 +8,9 @@ package tunnel
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/mylxsw/asteria/log"
 	"sync"
+
+	"github.com/mylxsw/asteria/log"
 )
 
 const (
@@ -33,6 +34,7 @@ type Hub struct {
 	links map[uint16]*Link
 
 	onCtrlFilter func(cmd Command) bool
+	onDataFilter func(isResp bool, link *Link, data []byte)
 }
 
 func (h *Hub) sendCommand(id uint16, cmd uint8) bool {
@@ -98,12 +100,14 @@ func (h *Hub) onData(id uint16, data []byte) {
 		return
 	}
 
+	if h.onDataFilter != nil {
+		h.onDataFilter(false, link, data)
+	}
+
 	if !link.write(data) {
 		mpool.Put(data)
 		log.Errorf("Link(%d) put data failed", id)
-		return
 	}
-	return
 }
 
 func (h *Hub) Start() {

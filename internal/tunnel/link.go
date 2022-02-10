@@ -8,11 +8,12 @@ package tunnel
 import (
 	"errors"
 	"fmt"
-	"github.com/mylxsw/asteria/log"
-	"github.com/mylxsw/secure-tunnel/internal/auth"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/mylxsw/asteria/log"
+	"github.com/mylxsw/secure-tunnel/internal/auth"
 )
 
 var errPeerClosed = errors.New("errPeerClosed")
@@ -150,6 +151,10 @@ func (h *Hub) startLink(link *Link, conn *net.TCPConn, authedUser *auth.AuthedUs
 					h.sendCommand(link.id, LinkCloseSend)
 				}
 				break
+			}
+
+			if h.onDataFilter != nil {
+				h.onDataFilter(true, link, data)
 			}
 
 			h.send(link.id, data)
