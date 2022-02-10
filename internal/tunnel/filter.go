@@ -13,6 +13,26 @@ import (
 	"github.com/secmask/go-redisproto"
 )
 
+func mongoProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
+	if isResp {
+		if backend.Backend.LogResponse {
+			log.WithFields(log.Fields{
+				"user":    authedUser,
+				"backend": backend.Backend,
+				"link":    link.id,
+				"data":    string(data),
+			}).Info("audit:resp")
+		}
+	} else {
+		log.WithFields(log.Fields{
+			"user":    authedUser,
+			"backend": backend.Backend,
+			"link":    link.id,
+			"data":    string(data),
+		}).Info("audit:req")
+	}
+}
+
 func mysqlProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
 	if isResp {
 		if backend.Backend.LogResponse {

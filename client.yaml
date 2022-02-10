@@ -12,3 +12,5 @@ backends:
     listen: 127.0.0.1:3306
   - backend: redis-dev
     listen: 127.0.0.1:6379
+  - backend: mongo-dev
+    listen: 127.0.0.1:27017

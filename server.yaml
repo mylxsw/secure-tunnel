@@ -13,6 +13,9 @@ backends:
     addr: 10.22.1.103:6379
     protocol: redis
     log_response: false
+  - name: mongo-dev
+    addr: 10.22.1.132:27017
+    protocol: mongo # not support yet
 
 ldap:
   url: ldap://127.0.0.1:389

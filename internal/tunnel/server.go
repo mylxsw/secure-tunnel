@@ -68,6 +68,8 @@ func newServerHub(tunnel *Tunnel, backend *Backend, authedUser *auth.AuthedUser)
 			redisProtocolFilter(isResp, link, data, authedUser, backend)
 		case "mysql":
 			mysqlProtocolFilter(isResp, link, data, authedUser, backend)
+		case "mongo":
+			mongoProtocolFilter(isResp, link, data, authedUser, backend)
 		default:
 		}
 	}
