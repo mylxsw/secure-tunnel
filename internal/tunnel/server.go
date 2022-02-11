@@ -63,14 +63,17 @@ func newServerHub(tunnel *Tunnel, backend *Backend, authedUser *auth.AuthedUser)
 	}
 	h.Hub.onCtrlFilter = h.onCtrl
 	h.Hub.onDataFilter = func(isResp bool, link *Link, data []byte) {
+		if backend.Backend.Protocol == "" {
+			return
+		}
+
 		switch backend.Backend.Protocol {
 		case "redis":
 			redisProtocolFilter(isResp, link, data, authedUser, backend)
 		case "mysql":
 			mysqlProtocolFilter(isResp, link, data, authedUser, backend)
-		case "mongo":
-			mongoProtocolFilter(isResp, link, data, authedUser, backend)
 		default:
+			defaultProtocolFilter(isResp, link, data, authedUser, backend)
 		}
 	}
 	return h

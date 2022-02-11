@@ -13,7 +13,7 @@ import (
 	"github.com/secmask/go-redisproto"
 )
 
-func mongoProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
+func defaultProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
 	if isResp {
 		if backend.Backend.LogResponse {
 			log.WithFields(log.Fields{
