@@ -17,14 +17,11 @@ import (
 
 var Version = "1.0"
 var GitCommit = "5dbef13fb456f51a5d29464d"
-var DEBUG = "false"
 
 func main() {
 	//log.All().LogFormatter(formatter.NewJSONFormatter())
 
-	log.All().WithFileLine(DEBUG == "true")
-
-	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport()
+	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport(1 * time.Second)
 
 	app.AddStringFlag("conf", "client.yaml", "服务器配置文件")
 	app.AddStringFlag("server", "", "server address")

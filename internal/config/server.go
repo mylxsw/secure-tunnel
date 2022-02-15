@@ -39,9 +39,10 @@ func LoadServerConfFromFile(configPath string) (*Server, error) {
 }
 
 type Server struct {
-	Listen   string          `json:"listen" yaml:"listen"`
-	Backends []BackendServer `json:"backends" yaml:"backends"`
-	Secret   string          `json:"-" yaml:"secret"`
+	HTTPListen string          `json:"http_listen" yaml:"http_listen"`
+	Listen     string          `json:"listen" yaml:"listen"`
+	Backends   []BackendServer `json:"backends" yaml:"backends"`
+	Secret     string          `json:"-" yaml:"secret"`
 
 	Verbose  bool   `json:"verbose" yaml:"verbose,omitempty"`
 	AuthType string `json:"auth_type" yaml:"auth_type"`

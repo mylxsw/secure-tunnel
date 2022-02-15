@@ -8,10 +8,10 @@ run-client: build-client
 	./build/debug/$(BIN)-client
 
 build-server:
-	go build -ldflags "$(LDFLAGS) -X main.DEBUG=true" -o build/debug/$(BIN)-server cmd/server/main.go
+	go build -ldflags "$(LDFLAGS)" -o build/debug/$(BIN)-server cmd/server/main.go
 
 build-client:
-	go build -ldflags "$(LDFLAGS) -X main.DEBUG=true" -o build/debug/$(BIN)-client cmd/client/main.go
+	go build -ldflags "$(LDFLAGS)" -o build/debug/$(BIN)-client cmd/client/main.go
 
 build-release:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/release/$(BIN)-server cmd/server/main.go

@@ -9,6 +9,7 @@ import (
 	"github.com/mylxsw/asteria/writer"
 	"github.com/mylxsw/glacier/infra"
 	"github.com/mylxsw/glacier/starter/application"
+	"github.com/mylxsw/secure-tunnel/internal/api"
 	"github.com/mylxsw/secure-tunnel/internal/auth/ldap"
 	"github.com/mylxsw/secure-tunnel/internal/auth/local"
 	"github.com/mylxsw/secure-tunnel/internal/auth/misc"
@@ -20,17 +21,24 @@ import (
 
 var Version = "1.0"
 var GitCommit = "5dbef13fb456f51a5d29464d"
-var DEBUG = "false"
 
 func main() {
 	log.All().LogFormatter(formatter.NewJSONFormatter())
-	log.All().WithFileLine(DEBUG == "true")
-
-	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport()
+	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport(5 * time.Second)
 
 	app.AddStringFlag("conf", "server.yaml", "服务器配置文件")
+	app.AddStringFlag("http-listen", "127.0.0.1:8081", "HTTP 监听地址")
 	app.Singleton(func(c infra.FlagContext) (*config.Server, error) {
-		return config.LoadServerConfFromFile(c.String("conf"))
+		conf, err := config.LoadServerConfFromFile(c.String("conf"))
+		if err != nil {
+			return nil, err
+		}
+
+		if conf.HTTPListen == "" {
+			conf.HTTPListen = c.String("http-listen")
+		}
+
+		return conf, nil
 	})
 
 	app.AfterInitialized(func(resolver infra.Resolver) error {
@@ -50,6 +58,7 @@ func main() {
 		misc.Provider{},
 		config.ServerProvider{},
 		tunnel.ServerProvider{},
+		api.Provider{},
 	)
 
 	application.MustRun(app)

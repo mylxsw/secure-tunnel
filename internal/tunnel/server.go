@@ -9,6 +9,9 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/mylxsw/asteria/log"
 	"github.com/mylxsw/glacier/infra"
@@ -80,9 +83,11 @@ func newServerHub(tunnel *Tunnel, backend *Backend, authedUser *auth.AuthedUser)
 }
 
 type Server struct {
-	listener net.Listener
-	backends map[string]*Backend
-	secret   string
+	listener        net.Listener
+	backends        map[string]*Backend
+	secret          string
+	connections     map[string]*connInfo
+	connectionsLock sync.RWMutex
 }
 
 type Backend struct {
@@ -90,7 +95,34 @@ type Backend struct {
 	Backend config.BackendServer
 }
 
-func (s *Server) handleConnection(conn net.Conn, author auth.Author) {
+type connInfo struct {
+	net.Conn
+	id         string
+	readBytes  int64
+	writeBytes int64
+	createdAt  time.Time
+	user       *auth.AuthedUser
+}
+
+// Read reads data from the connection.
+// Read can be made to time out and return an error after a fixed
+// time limit; see SetDeadline and SetReadDeadline.
+func (info *connInfo) Read(b []byte) (n int, err error) {
+	n, err = info.Conn.Read(b)
+	atomic.AddInt64(&info.readBytes, int64(n))
+	return
+}
+
+// Write writes data to the connection.
+// Write can be made to time out and return an error after a fixed
+// time limit; see SetDeadline and SetWriteDeadline.
+func (info *connInfo) Write(b []byte) (n int, err error) {
+	n, err = info.Conn.Write(b)
+	atomic.AddInt64(&info.writeBytes, int64(n))
+	return
+}
+
+func (s *Server) handleConnection(conn *connInfo, author auth.Author) {
 	defer func() { _ = conn.Close() }()
 	defer exceptionHandler()
 
@@ -138,6 +170,18 @@ func (s *Server) handleConnection(conn net.Conn, author auth.Author) {
 	}
 
 	if backend, ok := s.backends[backend]; ok {
+		conn.user = authedUser
+
+		s.connectionsLock.Lock()
+		s.connections[conn.id] = conn
+		s.connectionsLock.Unlock()
+
+		defer func() {
+			s.connectionsLock.Lock()
+			delete(s.connections, conn.id)
+			s.connectionsLock.Unlock()
+		}()
+
 		h := newServerHub(tunnel, backend, authedUser)
 		h.Start()
 	}
@@ -161,14 +205,46 @@ func (s *Server) Start(ctx context.Context, resolver infra.Resolver) error {
 						return err
 					}
 				}
-				log.Warningf("new connection from %v", conn.RemoteAddr())
-				go s.handleConnection(conn, author)
+				cinfo := connInfo{
+					Conn:      conn,
+					id:        fmt.Sprintf("%s-%s", conn.LocalAddr().String(), conn.RemoteAddr().String()),
+					createdAt: time.Now(),
+				}
+				log.With(cinfo).Debugf("new connection from %v", conn.RemoteAddr())
+				go s.handleConnection(&cinfo, author)
 			}
 		}
 	})
 }
 
-func (s *Server) Status() {
+type ServerConnStatus struct {
+	ID         string           `json:"id"`
+	LocalAddr  string           `json:"local_addr"`
+	RemoteAddr string           `json:"remote_addr"`
+	User       *auth.AuthedUser `json:"user"`
+	ReadBytes  int64            `json:"read_bytes"`
+	WriteBytes int64            `json:"write_bytes"`
+	CreatedAt  time.Time        `json:"created_at"`
+}
+
+func (s *Server) Status() []ServerConnStatus {
+	s.connectionsLock.RLock()
+	defer s.connectionsLock.RUnlock()
+
+	statuses := make([]ServerConnStatus, 0)
+	for _, conn := range s.connections {
+		statuses = append(statuses, ServerConnStatus{
+			ID:         conn.id,
+			LocalAddr:  conn.Conn.LocalAddr().String(),
+			RemoteAddr: conn.Conn.RemoteAddr().String(),
+			User:       conn.user,
+			ReadBytes:  conn.readBytes,
+			WriteBytes: conn.writeBytes,
+			CreatedAt:  conn.createdAt,
+		})
+	}
+
+	return statuses
 }
 
 // NewServer create a tunnel server
@@ -189,8 +265,9 @@ func NewServer(listen string, backends []config.BackendServer, secret string) (*
 	}
 
 	return &Server{
-		listener: ln,
-		backends: backendAddrs,
-		secret:   secret,
+		listener:    ln,
+		backends:    backendAddrs,
+		secret:      secret,
+		connections: make(map[string]*connInfo),
 	}, nil
 }
