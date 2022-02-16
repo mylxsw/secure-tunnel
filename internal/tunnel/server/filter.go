@@ -1,9 +1,10 @@
-package tunnel
+package server
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/mylxsw/secure-tunnel/internal/tunnel/hub"
 	"strconv"
 	"strings"
 
@@ -13,13 +14,13 @@ import (
 	"github.com/secmask/go-redisproto"
 )
 
-func defaultProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
+func DefaultProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
 	if isResp {
 		if backend.Backend.LogResponse {
 			log.WithFields(log.Fields{
 				"user":    authedUser,
 				"backend": backend.Backend,
-				"link":    link.id,
+				"link":    link.ID,
 				"data":    string(data),
 			}).Info("audit:resp")
 		}
@@ -27,19 +28,19 @@ func defaultProtocolFilter(isResp bool, link *Link, data []byte, authedUser *aut
 		log.WithFields(log.Fields{
 			"user":    authedUser,
 			"backend": backend.Backend,
-			"link":    link.id,
+			"link":    link.ID,
 			"data":    string(data),
 		}).Info("audit:req")
 	}
 }
 
-func mysqlProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
+func MysqlProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
 	if isResp {
 		if backend.Backend.LogResponse {
 			log.WithFields(log.Fields{
 				"user":    authedUser,
 				"backend": backend.Backend,
-				"link":    link.id,
+				"link":    link.ID,
 				"data":    string(data),
 			}).Info("audit:resp")
 		}
@@ -186,20 +187,20 @@ func mysqlProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.
 			log.WithFields(log.Fields{
 				"user":    authedUser,
 				"backend": backend.Backend,
-				"link":    link.id,
+				"link":    link.ID,
 				"data":    message,
 			}).Info("audit:req")
 		}
 	}
 }
 
-func redisProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
+func RedisProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
 	if isResp {
 		if backend.Backend.LogResponse {
 			log.WithFields(log.Fields{
 				"user":    authedUser,
 				"backend": backend.Backend,
-				"link":    link.id,
+				"link":    link.ID,
 				"data":    string(data),
 			}).Info("audit:resp")
 		}
@@ -218,7 +219,7 @@ func redisProtocolFilter(isResp bool, link *Link, data []byte, authedUser *auth.
 		log.WithFields(log.Fields{
 			"user":    authedUser,
 			"backend": backend.Backend,
-			"link":    link.id,
+			"link":    link.ID,
 			"data":    strings.Join(strs, " "),
 		}).Info("audit:req")
 	}

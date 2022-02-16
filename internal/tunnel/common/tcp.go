@@ -1,20 +1,19 @@
-//
-//   date  : 2015-12-28
-//   author: xjdrew
-//
-
-package tunnel
+package common
 
 import (
 	"net"
 	"time"
 )
 
-type TcpListener struct {
+const (
+	KeepalivePeriod = time.Second * 180
+)
+
+type TCPListener struct {
 	*net.TCPListener
 }
 
-func (l *TcpListener) Accept() (net.Conn, error) {
+func (l *TCPListener) Accept() (net.Conn, error) {
 	conn, err := l.TCPListener.AcceptTCP()
 	if err != nil {
 		return nil, err
@@ -24,13 +23,13 @@ func (l *TcpListener) Accept() (net.Conn, error) {
 	return conn, err
 }
 
-// create a tcp listener for server
-func newTcpListener(addr string) (net.Listener, error) {
+// NewTCPListener create a tcp listener for server
+func NewTCPListener(addr string) (net.Listener, error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	tl := TcpListener{ln.(*net.TCPListener)}
+	tl := TCPListener{ln.(*net.TCPListener)}
 	return &tl, nil
 }
 

@@ -1,19 +1,14 @@
-//
-//   date  : 2015-03-06
-//   author: xjdrew
-//
-
-package tunnel
+package common
 
 import "testing"
 
 func TestAuth(t *testing.T) {
 	key := "a test key"
-	a1 := newEncryptAlgorithm(key)
-	a2 := newEncryptAlgorithm(key)
+	a1 := NewEncryptAlgorithm(key)
+	a2 := NewEncryptAlgorithm(key)
 
-	a1.generateToken()
-	b1 := a1.generateCipherBlock(nil)
+	a1.GenerateToken()
+	b1 := a1.GenerateCipherBlock(nil)
 	t.Log("block 1:", b1)
 	if !a1.CheckSignature(b1) {
 		t.Fatal("check signature failed")

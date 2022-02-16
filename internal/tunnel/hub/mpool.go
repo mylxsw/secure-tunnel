@@ -1,9 +1,4 @@
-//
-//   date  : 2014-12-04
-//   author: xjdrew
-//
-
-package tunnel
+package hub
 
 import (
 	"sync"

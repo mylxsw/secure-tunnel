@@ -1,9 +1,4 @@
-//
-//   date  : 2015-03-05
-//   author: xjdrew
-//
-
-package tunnel
+package common
 
 import (
 	"bytes"
@@ -66,7 +61,7 @@ type EncryptAlgorithm struct {
 	token authToken
 }
 
-func newEncryptAlgorithm(key string) *EncryptAlgorithm {
+func NewEncryptAlgorithm(key string) *EncryptAlgorithm {
 	token := sha256.Sum256([]byte(key))
 	block, _ := aes.NewCipher(token[:TaaTokenSize])
 	mac := hmac.New(md5.New, token[TaaTokenSize:])
@@ -80,14 +75,14 @@ func init() {
 	rand.Seed(time.Now().Unix())
 }
 
-// generateToken generate new token
-func (a *EncryptAlgorithm) generateToken() {
+// GenerateToken generate new token
+func (a *EncryptAlgorithm) GenerateToken() {
 	a.token.challenge = uint64(rand.Int63())
 	a.token.timestamp = uint64(time.Now().UnixNano())
 }
 
-// generateCipherBlock generate cipher block
-func (a *EncryptAlgorithm) generateCipherBlock(token *authToken) []byte {
+// GenerateCipherBlock generate cipher block
+func (a *EncryptAlgorithm) GenerateCipherBlock(token *authToken) []byte {
 	if token == nil {
 		token = &a.token
 	}
@@ -125,7 +120,7 @@ func (a *EncryptAlgorithm) ExchangeCipherBlock(src []byte) ([]byte, bool) {
 
 	// complement challenge
 	token := a.token.complement()
-	return a.generateCipherBlock(&token), true
+	return a.GenerateCipherBlock(&token), true
 }
 
 // VerifyCipherBlock verify cipher block
@@ -149,11 +144,11 @@ func (a *EncryptAlgorithm) GetRc4key() []byte {
 	return bytes.Repeat(a.token.toBytes(), 8)
 }
 
-func buildAuthPacket(username, password, backend string) []byte {
+func BuildAuthPacket(username, password, backend string) []byte {
 	return []byte(fmt.Sprintf("%s:%s@%s", username, password, backend))
 }
 
-func parseAuthPacket(data []byte) (username, password, backend string) {
+func ParseAuthPacket(data []byte) (username, password, backend string) {
 	segs := strings.Split(string(data), "@")
 	userInfos := strings.SplitN(strings.Join(segs[:len(segs)-1], "@"), ":", 2)
 

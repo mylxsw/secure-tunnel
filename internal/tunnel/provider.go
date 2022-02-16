@@ -6,6 +6,8 @@ import (
 	"github.com/mylxsw/glacier/infra"
 	"github.com/mylxsw/graceful"
 	"github.com/mylxsw/secure-tunnel/internal/config"
+	"github.com/mylxsw/secure-tunnel/internal/tunnel/client"
+	"github.com/mylxsw/secure-tunnel/internal/tunnel/server"
 	"sync"
 )
 
@@ -22,13 +24,13 @@ func (p ClientProvider) Daemon(ctx context.Context, app infra.Resolver) {
 			go func(backend config.BackendPortMapping) {
 				defer wg.Done()
 
-				client, err := NewClient(conf.Server, conf.Secret, backend, conf.Tunnels, conf)
+				clientServer, err := client.NewClient(conf.Server, conf.Secret, backend, conf.Tunnels, conf)
 				if err != nil {
 					log.With(backend).Errorf("create client failed: %v", err)
 					return
 				}
 
-				if err := client.Start(ctx, gf); err != nil {
+				if err := clientServer.Start(ctx, gf); err != nil {
 					log.With(backend).Errorf("client started failed: %v", err)
 				}
 			}(backend)
@@ -41,13 +43,13 @@ func (p ClientProvider) Daemon(ctx context.Context, app infra.Resolver) {
 type ServerProvider struct{}
 
 func (p ServerProvider) Register(app infra.Binder) {
-	app.MustSingletonOverride(func(conf *config.Server) (*Server, error) {
-		return NewServer(conf.Listen, conf.Backends, conf.Secret)
+	app.MustSingletonOverride(func(conf *config.Server) (*server.Server, error) {
+		return server.NewServer(conf.Listen, conf.Backends, conf.Secret)
 	})
 }
 
 func (p ServerProvider) Daemon(ctx context.Context, app infra.Resolver) {
-	app.MustResolve(func(server *Server) error {
+	app.MustResolve(func(server *server.Server) error {
 		return server.Start(ctx, app)
 	})
 }

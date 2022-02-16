@@ -1,16 +1,11 @@
-//
-//   date  : 2014-06-04
-//   author: xjdrew
-//
-
-package tunnel
+package common
 
 import (
 	"github.com/mylxsw/asteria/log"
 	"runtime"
 )
 
-func exceptionHandler() {
+func ErrorHandler() {
 	if err := recover(); err != nil {
 		buf := make([]byte, 32768)
 		runtime.Stack(buf, true)

@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/mylxsw/glacier/infra"
 	"github.com/mylxsw/glacier/web"
-	"github.com/mylxsw/secure-tunnel/internal/tunnel"
+	"github.com/mylxsw/secure-tunnel/internal/tunnel/server"
 )
 
 type ServerController struct {
@@ -20,6 +20,6 @@ func (ctl ServerController) Register(router web.Router) {
 	})
 }
 
-func (ctl ServerController) ServerStatus(wtx web.Context, server *tunnel.Server) web.Response {
+func (ctl ServerController) ServerStatus(wtx web.Context, server *server.Server) web.Response {
 	return wtx.JSON(web.M{"connections": server.Status()})
 }

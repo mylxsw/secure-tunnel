@@ -1,4 +1,4 @@
-package tunnel
+package client
 
 import (
 	"container/heap"
@@ -9,26 +9,51 @@ import (
 	"github.com/mylxsw/graceful"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
 	"github.com/mylxsw/secure-tunnel/internal/config"
+	"github.com/mylxsw/secure-tunnel/internal/tunnel/common"
+	"github.com/mylxsw/secure-tunnel/internal/tunnel/hub"
 	"net"
 	"sync"
 	"time"
 )
 
-// ClientHub manages client links
-type ClientHub struct {
-	*Hub
+const (
+	TunnelMinSpan = 3 // 3次心跳无回应则断开
+)
+
+// Heartbeat interval for Tunnel heartbeat, seconds.
+var Heartbeat int = 1 // seconds
+
+func GetHeartbeat() time.Duration {
+	if Heartbeat <= 0 {
+		Heartbeat = 1
+	}
+	return time.Duration(Heartbeat) * time.Second
+}
+
+var (
+	// Timeout for Tunnel write/read, seconds
+	Timeout int = 0 //
+)
+
+func GetTimeout() time.Duration {
+	return time.Duration(Timeout) * time.Second
+}
+
+// Hub manages client links
+type Hub struct {
+	*hub.Hub
 	sent     uint16
 	received uint16
 }
 
-func (h *ClientHub) heartbeat() {
-	heartbeat := getHeartbeat()
+func (h *Hub) heartbeat() {
+	heartbeat := GetHeartbeat()
 	ticker := time.NewTicker(heartbeat)
 	defer ticker.Stop()
 
-	maxSpan := int(getTimeout() / heartbeat)
-	if maxSpan <= tunnelMinSpan {
-		maxSpan = tunnelMinSpan
+	maxSpan := int(GetTimeout() / heartbeat)
+	if maxSpan <= TunnelMinSpan {
+		maxSpan = TunnelMinSpan
 	}
 
 	for range ticker.C {
@@ -38,33 +63,33 @@ func (h *ClientHub) heartbeat() {
 			log.F(log.M{
 				"span":     span,
 				"max_span": maxSpan,
-			}).Errorf("tunnel(%v) timeout, sent:%d, received:%d", h.Hub.tunnel, h.sent, h.received)
+			}).Errorf("tunnel(%v) timeout, sent:%d, received:%d", h.Hub.Tunnel, h.sent, h.received)
 			h.Hub.Close()
 			break
 		}
 
 		h.sent = h.sent + 1
-		if !h.sendCommand(h.sent, TunHeartbeat) {
+		if !h.SendCommand(h.sent, hub.TunHeartbeat) {
 			break
 		}
 	}
 }
 
-func (h *ClientHub) onCtrl(cmd Command) bool {
+func (h *Hub) onCtrl(cmd hub.Command) bool {
 	id := cmd.ID
 	switch cmd.Cmd {
-	case TunHeartbeat:
+	case hub.TunHeartbeat:
 		h.received = id
 		return true
 	}
 	return false
 }
 
-func newClientHub(tunnel *Tunnel) *ClientHub {
-	h := &ClientHub{
-		Hub: newHub(tunnel),
+func newClientHub(tun *hub.Tunnel) *Hub {
+	h := &Hub{
+		Hub: hub.NewHub(tun),
 	}
-	h.Hub.onCtrlFilter = h.onCtrl
+	h.Hub.OnCtrlFilter = h.onCtrl
 	go h.heartbeat()
 	return h
 }
@@ -78,56 +103,56 @@ type Client struct {
 	secret     string
 	tunnels    uint
 
-	alloc *IDAllocator
-	cq    HubQueue
+	alloc *common.IDAllocator
+	cq    Queue
 	lock  sync.Mutex
 }
 
-func (cli *Client) createHub(gf graceful.Graceful) (hub *HubItem, err error) {
+func (cli *Client) createHub(gf graceful.Graceful) (hubItem *Item, err error) {
 	defer func() {
 		if err2 := recover(); err2 != nil {
-			err = fmt.Errorf("create client hub failed: %v", err2)
+			err = fmt.Errorf("create client hubItem failed: %v", err2)
 			log.Errorf("%v", err)
 			gf.Shutdown()
 		}
 	}()
 
-	conn, err := dial(cli.serverAddr)
+	conn, err := common.Dial(cli.serverAddr)
 	if err != nil {
 		panic(fmt.Errorf("dial failed: %v", err))
 		return
 	}
 
-	tunnel := newTunnel(conn)
-	_, challenge, err := tunnel.ReadPacket()
+	tun := hub.NewTunnel(conn)
+	_, challenge, err := tun.ReadPacket()
 	if err != nil {
-		panic(fmt.Errorf("read challenge failed(%v):%s", tunnel, err))
+		panic(fmt.Errorf("read challenge failed(%v):%s", tun, err))
 		return
 	}
 
-	a := newEncryptAlgorithm(cli.secret)
+	a := common.NewEncryptAlgorithm(cli.secret)
 	token, ok := a.ExchangeCipherBlock(challenge)
 	if !ok {
 		err = errors.New("exchange challenge failed")
-		panic(fmt.Errorf("exchange challenge failed(%v)", tunnel))
+		panic(fmt.Errorf("exchange challenge failed(%v)", tun))
 		return
 	}
 
-	if err = tunnel.WritePacket(0, token); err != nil {
-		panic(fmt.Errorf("write token failed(%v):%s", tunnel, err))
+	if err = tun.WritePacket(0, token); err != nil {
+		panic(fmt.Errorf("write token failed(%v):%s", tun, err))
 		return
 	}
 
-	tunnel.SetCipherKey(a.GetRc4key())
+	tun.SetCipherKey(a.GetRc4key())
 
-	if err = tunnel.WritePacket(0, buildAuthPacket(cli.conf.Username, cli.conf.Password, cli.backend.Backend)); err != nil {
-		panic(fmt.Errorf("write username & password failed(%v):%s", tunnel, err))
+	if err = tun.WritePacket(0, common.BuildAuthPacket(cli.conf.Username, cli.conf.Password, cli.backend.Backend)); err != nil {
+		panic(fmt.Errorf("write username & password failed(%v):%s", tun, err))
 		return
 	}
 
-	_, authedPacket, err := tunnel.ReadPacket()
+	_, authedPacket, err := tun.ReadPacket()
 	if err != nil {
-		panic(fmt.Errorf("auth failed(%v):%s", tunnel, err))
+		panic(fmt.Errorf("auth failed(%v):%s", tun, err))
 		return
 	}
 
@@ -135,26 +160,26 @@ func (cli *Client) createHub(gf graceful.Graceful) (hub *HubItem, err error) {
 		panic(fmt.Errorf("auth failed: %s", string(authedPacket)))
 	}
 
-	hub = &HubItem{
-		ClientHub: newClientHub(tunnel),
+	hubItem = &Item{
+		Hub: newClientHub(tun),
 	}
 
 	return
 }
 
-func (cli *Client) addHub(item *HubItem) {
+func (cli *Client) addHub(item *Item) {
 	cli.lock.Lock()
 	heap.Push(&cli.cq, item)
 	cli.lock.Unlock()
 }
 
-func (cli *Client) removeHub(item *HubItem) {
+func (cli *Client) removeHub(item *Item) {
 	cli.lock.Lock()
-	heap.Remove(&cli.cq, item.index)
+	heap.Remove(&cli.cq, item.Index)
 	cli.lock.Unlock()
 }
 
-func (cli *Client) fetchHub() *HubItem {
+func (cli *Client) fetchHub() *Item {
 	defer cli.lock.Unlock()
 	cli.lock.Lock()
 
@@ -162,21 +187,21 @@ func (cli *Client) fetchHub() *HubItem {
 		return nil
 	}
 	item := cli.cq[0]
-	item.priority += 1
+	item.Priority += 1
 	heap.Fix(&cli.cq, 0)
 	return item
 }
 
-func (cli *Client) dropHub(item *HubItem) {
+func (cli *Client) dropHub(item *Item) {
 	cli.lock.Lock()
-	item.priority -= 1
-	heap.Fix(&cli.cq, item.index)
+	item.Priority -= 1
+	heap.Fix(&cli.cq, item.Index)
 	cli.lock.Unlock()
 }
 
-func (cli *Client) handleConnection(hub *HubItem, conn *net.TCPConn) {
-	defer exceptionHandler()
-	defer cli.dropHub(hub)
+func (cli *Client) handleConnection(item *Item, conn *net.TCPConn) {
+	defer common.ErrorHandler()
+	defer cli.dropHub(item)
 	defer func() {
 		_ = conn.Close()
 	}()
@@ -184,12 +209,12 @@ func (cli *Client) handleConnection(hub *HubItem, conn *net.TCPConn) {
 	id := cli.alloc.Acquire()
 	defer cli.alloc.Release(id)
 
-	h := hub.Hub
-	l := h.createLink(id)
-	defer h.deleteLink(id)
+	h := item.Hub
+	l := h.CreateLink(id)
+	defer h.DeleteLink(id)
 
-	h.sendCommand(id, LinkCreate)
-	h.startLink(l, conn, &auth.AuthedUser{Account: cli.conf.Username})
+	h.SendCommand(id, hub.LinkCreate)
+	h.StartLink(l, conn, &auth.AuthedUser{Account: cli.conf.Username})
 }
 
 func (cli *Client) listen(ctx context.Context) error {
@@ -217,8 +242,8 @@ func (cli *Client) listen(ctx context.Context) error {
 
 			log.Infof("new connection from %v", conn.RemoteAddr())
 
-			hub := cli.fetchHub()
-			if hub == nil {
+			h := cli.fetchHub()
+			if h == nil {
 				log.Errorf("no active hub")
 				_ = conn.Close()
 				continue
@@ -226,7 +251,7 @@ func (cli *Client) listen(ctx context.Context) error {
 
 			_ = conn.SetKeepAlive(true)
 			_ = conn.SetKeepAlivePeriod(time.Second * 60)
-			go cli.handleConnection(hub, conn)
+			go cli.handleConnection(h, conn)
 		}
 	}
 }
@@ -235,7 +260,7 @@ func (cli *Client) listen(ctx context.Context) error {
 func (cli *Client) Start(ctx context.Context, gf graceful.Graceful) error {
 	for i := 0; i < cap(cli.cq); i++ {
 		go func(index int) {
-			defer exceptionHandler()
+			defer common.ErrorHandler()
 
 			for {
 				select {
@@ -270,8 +295,8 @@ func (cli *Client) Start(ctx context.Context, gf graceful.Graceful) error {
 func (cli *Client) Status() {
 	defer cli.lock.Unlock()
 	cli.lock.Lock()
-	for _, hub := range cli.cq {
-		hub.Status()
+	for _, h := range cli.cq {
+		h.Status()
 	}
 }
 
@@ -282,8 +307,8 @@ func NewClient(serverAddr, secret string, backend config.BackendPortMapping, tun
 		serverAddr: serverAddr,
 		secret:     secret,
 		tunnels:    tunnels,
-		alloc:      newIDAllocator(),
-		cq:         make(HubQueue, tunnels)[0:0],
+		alloc:      common.NewIDAllocator(),
+		cq:         make(Queue, tunnels)[0:0],
 	}
 	return client, nil
 }
