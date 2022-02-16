@@ -1,53 +1,48 @@
-//
-//   date  : 2015-06-05
-//   author: xjdrew
-//
-
 package client
 
 import (
 	"github.com/mylxsw/asteria/log"
 )
 
-type Item struct {
+type queueItem struct {
 	*Hub
-	Priority int // current Link count
-	Index    int // Index in the heap
+	priority int // current Link count
+	index    int // index in the heap
 }
 
-func (h *Item) Status() {
+func (h *queueItem) Status() {
 	h.Hub.Status()
-	log.Warningf("Priority:%d, Index:%d", h.Priority, h.Index)
+	log.Warningf("priority:%d, index:%d", h.priority, h.index)
 }
 
-type Queue []*Item
+type queue []*queueItem
 
-func (cq Queue) Len() int {
+func (cq queue) Len() int {
 	return len(cq)
 }
 
-func (cq Queue) Less(i, j int) bool {
-	return cq[i].Priority < cq[j].Priority
+func (cq queue) Less(i, j int) bool {
+	return cq[i].priority < cq[j].priority
 }
 
-func (cq Queue) Swap(i, j int) {
+func (cq queue) Swap(i, j int) {
 	cq[i], cq[j] = cq[j], cq[i]
-	cq[i].Index = i
-	cq[j].Index = j
+	cq[i].index = i
+	cq[j].index = j
 }
 
-func (cq *Queue) Push(x interface{}) {
+func (cq *queue) Push(x interface{}) {
 	n := len(*cq)
-	hub := x.(*Item)
-	hub.Index = n
+	hub := x.(*queueItem)
+	hub.index = n
 	*cq = append(*cq, hub)
 }
 
-func (cq *Queue) Pop() interface{} {
+func (cq *queue) Pop() interface{} {
 	old := *cq
 	n := len(old)
 	hub := old[n-1]
-	hub.Index = -1
+	hub.index = -1
 	*cq = old[0 : n-1]
 	return hub
 }

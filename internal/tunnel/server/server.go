@@ -50,7 +50,7 @@ type connInfo struct {
 
 // NewServer create a tunnel server
 func NewServer(listen string, backends []config.BackendServer, secret string) (*Server, error) {
-	ln, err := common.NewListener(listen)
+	ln, err := newTCPListener(listen)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +151,7 @@ func (s *Server) handleConnection(conn *connInfo, author auth.Author) {
 			s.connectionsLock.Unlock()
 		}()
 
-		h := newHub(tun, backend, authedUser)
-		h.Start()
+		newHub(tun, backend, authedUser).Start()
 	}
 }
 

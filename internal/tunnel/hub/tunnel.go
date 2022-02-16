@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"github.com/mylxsw/secure-tunnel/internal/tunnel/common"
 	"io"
 	"net"
 	"sync"
@@ -16,7 +15,7 @@ const (
 
 var ErrTooLarge = fmt.Errorf("tunnel.Read: packet too large")
 
-var mPool = NewMPool(PacketSize)
+var mPool = newPool(PacketSize)
 
 // Tunnel packet header
 // a Tunnel packet consists of a header and a body
@@ -27,7 +26,7 @@ type header struct {
 }
 
 type Tunnel struct {
-	*common.Connection
+	*Connection
 
 	lock sync.Mutex // protect concurrent write
 	err  error      // write error
@@ -35,7 +34,7 @@ type Tunnel struct {
 
 func NewTunnel(conn net.Conn) *Tunnel {
 	var tun Tunnel
-	tun.Connection = common.NewConnection(
+	tun.Connection = newConnection(
 		conn,
 		bufio.NewReaderSize(conn, PacketSize*2),
 		bufio.NewWriterSize(conn, PacketSize*2),
@@ -98,5 +97,5 @@ func (tun *Tunnel) ReadPacket() (linkID uint16, data []byte, err error) {
 }
 
 func (tun *Tunnel) String() string {
-	return fmt.Sprintf("Tunnel[%s -> %s]", tun.Conn.LocalAddr(), tun.Conn.RemoteAddr())
+	return fmt.Sprintf("tunnel[%s -> %s]", tun.Conn.LocalAddr(), tun.Conn.RemoteAddr())
 }

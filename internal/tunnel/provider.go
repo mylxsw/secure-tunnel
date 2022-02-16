@@ -48,8 +48,8 @@ func (p ServerProvider) Register(app infra.Binder) {
 	})
 }
 
-func (p ServerProvider) Daemon(ctx context.Context, app infra.Resolver) {
-	app.MustResolve(func(server *server.Server) error {
-		return server.Start(ctx, app)
+func (p ServerProvider) Daemon(ctx context.Context, resolver infra.Resolver) {
+	resolver.MustResolve(func(server *server.Server) error {
+		return server.Start(ctx, resolver)
 	})
 }

@@ -14,7 +14,44 @@ import (
 	"github.com/secmask/go-redisproto"
 )
 
-func DefaultProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
+func buildCtrlFilter(h *Hub) func(cmd hub.Command) bool {
+	return func(cmd hub.Command) bool {
+		id := cmd.ID
+		switch cmd.Cmd {
+		case hub.LinkCreate:
+			l := h.CreateLink(id)
+			if l != nil {
+				go h.handleLink(l)
+			} else {
+				h.SendCommand(id, hub.LinkClose)
+			}
+			return true
+		case hub.TunHeartbeat:
+			h.SendCommand(id, hub.TunHeartbeat)
+			return true
+		}
+		return false
+	}
+}
+
+func buildDataFilter(backend *Backend, authedUser *auth.AuthedUser) func(isResp bool, link *hub.Link, data []byte) {
+	return func(isResp bool, link *hub.Link, data []byte) {
+		if backend.Backend.Protocol == "" {
+			return
+		}
+
+		switch backend.Backend.Protocol {
+		case "redis":
+			redisProtocolFilter(isResp, link, data, authedUser, backend)
+		case "mysql":
+			mysqlProtocolFilter(isResp, link, data, authedUser, backend)
+		default:
+			defaultProtocolFilter(isResp, link, data, authedUser, backend)
+		}
+	}
+}
+
+func defaultProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
 	if isResp {
 		if backend.Backend.LogResponse {
 			log.WithFields(log.Fields{
@@ -34,7 +71,7 @@ func DefaultProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser 
 	}
 }
 
-func MysqlProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
+func mysqlProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
 	if isResp {
 		if backend.Backend.LogResponse {
 			log.WithFields(log.Fields{
@@ -70,7 +107,7 @@ func MysqlProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *a
 				data, _ := json.Marshal(map[string]interface{}{
 					"auth_plugin_name": user.AuthPluginName,
 					"auth_response":    user.AuthResponse,
-					"chacter_set":      user.CharacterSet,
+					"character_set":    user.CharacterSet,
 					"schema":           user.SchemaName,
 					"user":             user.User,
 					"data":             user.Data,
@@ -194,7 +231,7 @@ func MysqlProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *a
 	}
 }
 
-func RedisProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
+func redisProtocolFilter(isResp bool, link *hub.Link, data []byte, authedUser *auth.AuthedUser, backend *Backend) {
 	if isResp {
 		if backend.Backend.LogResponse {
 			log.WithFields(log.Fields{

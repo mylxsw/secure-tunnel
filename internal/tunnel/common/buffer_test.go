@@ -2,7 +2,7 @@ package common
 
 import "testing"
 
-var input string = "hello, world"
+var input = "hello, world"
 
 func produce(buffer *Buffer) {
 	for i := 0; i < len(input); i++ {

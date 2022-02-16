@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
-	"github.com/mylxsw/secure-tunnel/internal/tunnel/common"
 	"net"
 	"sync"
 	"time"
@@ -30,7 +29,7 @@ type Command struct {
 }
 
 type Hub struct {
-	Tunnel *Tunnel
+	tunnel *Tunnel
 
 	linksLock sync.RWMutex // protect links
 	links     map[uint16]*Link
@@ -41,9 +40,13 @@ type Hub struct {
 
 func NewHub(tunnel *Tunnel) *Hub {
 	return &Hub{
-		Tunnel: tunnel,
+		tunnel: tunnel,
 		links:  make(map[uint16]*Link),
 	}
+}
+
+func (h *Hub) TunnelName() string {
+	return h.tunnel.String()
 }
 
 func (h *Hub) SendCommand(id uint16, cmd uint8) bool {
@@ -58,8 +61,8 @@ func (h *Hub) SendCommand(id uint16, cmd uint8) bool {
 }
 
 func (h *Hub) send(id uint16, data []byte) bool {
-	if err := h.Tunnel.WritePacket(id, data); err != nil {
-		log.Errorf("Link(%d) write to %s failed:%s", id, h.Tunnel, err.Error())
+	if err := h.tunnel.WritePacket(id, data); err != nil {
+		log.Errorf("link(%d) write to %s failed:%s", id, h.tunnel, err.Error())
 		return false
 	}
 	return true
@@ -67,7 +70,7 @@ func (h *Hub) send(id uint16, data []byte) bool {
 
 func (h *Hub) onCtrl(cmd Command) {
 	if cmd.Cmd != TunHeartbeat {
-		log.Debugf("Link(%d) recv cmd:%d", cmd.ID, cmd.Cmd)
+		log.Debugf("link(%d) recv cmd:%d", cmd.ID, cmd.Cmd)
 	}
 
 	if h.OnCtrlFilter != nil && h.OnCtrlFilter(cmd) {
@@ -77,7 +80,7 @@ func (h *Hub) onCtrl(cmd Command) {
 	id := cmd.ID
 	l := h.GetLink(id)
 	if l == nil {
-		log.Errorf("Link(%d) recv Cmd:%d, no Link", id, cmd.Cmd)
+		log.Errorf("link(%d) recv Cmd:%d, no Link", id, cmd.Cmd)
 		return
 	}
 
@@ -89,7 +92,7 @@ func (h *Hub) onCtrl(cmd Command) {
 	case LinkCloseSend:
 		l.closeWrite()
 	default:
-		log.Errorf("Link(%d) receive unknown Cmd:%v", id, cmd)
+		log.Errorf("link(%d) receive unknown Cmd:%v", id, cmd)
 	}
 }
 
@@ -97,7 +100,7 @@ func (h *Hub) onData(id uint16, data []byte) {
 	link := h.GetLink(id)
 	if link == nil {
 		mPool.Put(data)
-		log.Errorf("Link(%d) no Link", id)
+		log.Errorf("link(%d) no Link", id)
 		return
 	}
 
@@ -107,17 +110,17 @@ func (h *Hub) onData(id uint16, data []byte) {
 
 	if !link.write(data) {
 		mPool.Put(data)
-		log.Errorf("Link(%d) put data failed", id)
+		log.Errorf("link(%d) put data failed", id)
 	}
 }
 
 func (h *Hub) Start() {
-	defer func() { _ = h.Tunnel.Close() }()
+	defer func() { _ = h.tunnel.Close() }()
 
 	for {
-		id, data, err := h.Tunnel.ReadPacket()
+		id, data, err := h.tunnel.ReadPacket()
 		if err != nil {
-			log.Errorf("%s read failed:%v", h.Tunnel, err)
+			log.Errorf("%s read failed:%v", h.tunnel, err)
 			break
 		}
 
@@ -136,13 +139,13 @@ func (h *Hub) Start() {
 		}
 	}
 
-	// Tunnel disconnect, so reset all Link
+	// tunnel disconnect, so reset all Link
 	h.ResetAllLink()
-	log.Warningf("hub(%s) quit", h.Tunnel)
+	log.Warningf("hub(%s) quit", h.tunnel)
 }
 
 func (h *Hub) Close() {
-	_ = h.Tunnel.Close()
+	_ = h.tunnel.Close()
 }
 
 func (h *Hub) Status() {
@@ -152,7 +155,7 @@ func (h *Hub) Status() {
 	for id := range h.links {
 		links = append(links, id)
 	}
-	log.Warningf("<status> %s, %d links(%v)", h.Tunnel, len(h.links), links)
+	log.Warningf("<status> %s, %d links(%v)", h.tunnel, len(h.links), links)
 }
 
 func (h *Hub) ResetAllLink() {
@@ -173,24 +176,21 @@ func (h *Hub) GetLink(id uint16) *Link {
 }
 
 func (h *Hub) DeleteLink(id uint16) {
-	log.Infof("Link(%d) delete", id)
+	log.Infof("link(%d) delete", id)
 	h.linksLock.Lock()
 	defer h.linksLock.Unlock()
 	delete(h.links, id)
 }
 
 func (h *Hub) CreateLink(id uint16) *Link {
-	log.Infof("Link(%d) new Link over %s", id, h.Tunnel)
+	log.Infof("link(%d) new Link over %s", id, h.tunnel)
 	h.linksLock.Lock()
 	defer h.linksLock.Unlock()
 	if _, ok := h.links[id]; ok {
-		log.Errorf("Link(%d) repeated over %s", id, h.Tunnel)
+		log.Errorf("link(%d) repeated over %s", id, h.tunnel)
 		return nil
 	}
-	l := &Link{
-		ID:          id,
-		writeBuffer: common.NewBuffer(16),
-	}
+	l := newLink(id)
 	h.links[id] = l
 	return l
 }
@@ -200,7 +200,7 @@ func (h *Hub) StartLink(link *Link, conn *net.TCPConn, authedUser *auth.AuthedUs
 	_ = conn.SetKeepAlivePeriod(time.Second * 60)
 	link.setConn(conn)
 
-	log.With(authedUser).Infof("Link(%d) start %v", link.ID, conn.RemoteAddr())
+	log.With(authedUser).Infof("link(%d) start %v", link.ID, conn.RemoteAddr())
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -235,5 +235,5 @@ func (h *Hub) StartLink(link *Link, conn *net.TCPConn, authedUser *auth.AuthedUs
 		}
 	}()
 	wg.Wait()
-	log.Infof("Link(%d) close", link.ID)
+	log.Infof("link(%d) close", link.ID)
 }

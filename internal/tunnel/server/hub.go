@@ -20,21 +20,8 @@ func newHub(tunnel *hub.Tunnel, backend *Backend, authedUser *auth.AuthedUser) *
 		backend:    backend,
 		authedUser: authedUser,
 	}
-	h.Hub.OnCtrlFilter = h.onCtrl
-	h.Hub.OnDataFilter = func(isResp bool, link *hub.Link, data []byte) {
-		if backend.Backend.Protocol == "" {
-			return
-		}
-
-		switch backend.Backend.Protocol {
-		case "redis":
-			RedisProtocolFilter(isResp, link, data, authedUser, backend)
-		case "mysql":
-			MysqlProtocolFilter(isResp, link, data, authedUser, backend)
-		default:
-			DefaultProtocolFilter(isResp, link, data, authedUser, backend)
-		}
-	}
+	h.Hub.OnCtrlFilter = buildCtrlFilter(h)
+	h.Hub.OnDataFilter = buildDataFilter(backend, authedUser)
 	return h
 }
 
@@ -44,29 +31,11 @@ func (h *Hub) handleLink(l *hub.Link) {
 
 	conn, err := net.DialTCP("tcp", nil, h.backend.Addr)
 	if err != nil {
-		log.Errorf("Link(%d) connect to serverAddr failed, err:%v", l.ID, err)
+		log.Errorf("link(%d) connect to serverAddr failed, err:%v", l.ID, err)
 		h.SendCommand(l.ID, hub.LinkClose)
 		h.DeleteLink(l.ID)
 		return
 	}
 
 	h.StartLink(l, conn, h.authedUser)
-}
-
-func (h *Hub) onCtrl(cmd hub.Command) bool {
-	id := cmd.ID
-	switch cmd.Cmd {
-	case hub.LinkCreate:
-		l := h.CreateLink(id)
-		if l != nil {
-			go h.handleLink(l)
-		} else {
-			h.SendCommand(id, hub.LinkClose)
-		}
-		return true
-	case hub.TunHeartbeat:
-		h.SendCommand(id, hub.TunHeartbeat)
-		return true
-	}
-	return false
 }

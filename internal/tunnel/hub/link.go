@@ -16,6 +16,13 @@ type Link struct {
 	err  error      // if read closed, error to give reads
 }
 
+func newLink(id uint16) *Link {
+	return &Link{
+		ID:          id,
+		writeBuffer: common.NewBuffer(16),
+	}
+}
+
 // set err
 func (l *Link) setError(err error) bool {
 	l.lock.Lock()

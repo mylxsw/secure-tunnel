@@ -1,4 +1,4 @@
-package common
+package hub
 
 import (
 	"bufio"
@@ -14,7 +14,7 @@ type Connection struct {
 	dec    *rc4.Cipher
 }
 
-func NewConnection(conn net.Conn, reader *bufio.Reader, writer *bufio.Writer, enc *rc4.Cipher, dec *rc4.Cipher) *Connection {
+func newConnection(conn net.Conn, reader *bufio.Reader, writer *bufio.Writer, enc *rc4.Cipher, dec *rc4.Cipher) *Connection {
 	return &Connection{
 		Conn:   conn,
 		reader: reader,
