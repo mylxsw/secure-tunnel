@@ -18,13 +18,15 @@ func (p ClientProvider) Register(app infra.Binder) {
 
 func (p ClientProvider) Daemon(ctx context.Context, app infra.Resolver) {
 	app.MustResolve(func(conf *config.Client, gf graceful.Graceful) {
+		version := app.MustGet(infra.VersionKey).(string)
+
 		var wg sync.WaitGroup
 		wg.Add(len(conf.Backends))
 		for _, backend := range conf.Backends {
 			go func(backend config.BackendPortMapping) {
 				defer wg.Done()
 
-				clientServer, err := client.NewClient(conf.Server, conf.Secret, backend, conf.Tunnels, conf)
+				clientServer, err := client.NewClient(version, conf.Server, conf.Secret, backend, conf.Tunnels, conf)
 				if err != nil {
 					log.With(backend).Errorf("create client failed: %v", err)
 					return

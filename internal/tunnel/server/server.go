@@ -119,9 +119,22 @@ func (s *Server) handleConnection(conn *connInfo, author auth.Author) {
 
 	tun.SetCipherKey(a.GetRc4key())
 
+	_, clientInfoPacket, err := tun.ReadPacket()
+	if err != nil {
+		log.Errorf("read client info failed(%v): %v", tun, err)
+		_ = tun.WritePacket(0, []byte(fmt.Sprintf("error: read client info failed: %v", err)))
+		return
+	}
+
+	if err := tun.WritePacket(0, []byte("ok")); err != nil {
+		log.Errorf("write client info exchange response packet to client failed: %v", err)
+		return
+	}
+
+	// 客户端身份认证
 	_, authPacket, err := tun.ReadPacket()
 	if err != nil {
-		log.Errorf("read username & password failed(%v):%s", tun, err)
+		log.Errorf("read username & password failed(%v):%v", tun, err)
 		return
 	}
 
@@ -150,6 +163,14 @@ func (s *Server) handleConnection(conn *connInfo, author auth.Author) {
 			delete(s.connections, conn.id)
 			s.connectionsLock.Unlock()
 		}()
+
+		log.WithFields(log.Fields{
+			"client":      common.DecodeSystemInfo(clientInfoPacket),
+			"user":        authedUser,
+			"backend":     backend,
+			"conn_id":     conn.id,
+			"remote_addr": conn.RemoteAddr().String(),
+		}).Infof("user %s connected from %s", authedUser.Account, conn.RemoteAddr().String())
 
 		newHub(tun, backend, authedUser).Start()
 	}

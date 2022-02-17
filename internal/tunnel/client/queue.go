@@ -12,7 +12,7 @@ type queueItem struct {
 
 func (h *queueItem) Status() {
 	h.Hub.Status()
-	log.Warningf("priority:%d, index:%d", h.priority, h.index)
+	log.Warningf("priority: %d, index: %d", h.priority, h.index)
 }
 
 type queue []*queueItem

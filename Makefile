@@ -1,5 +1,5 @@
 BIN := secure-tunnel
-LDFLAGS := -s -w -X main.Version=$(shell date "+%Y%m%d%H%M") -X main.GitCommit=$(shell git rev-parse HEAD)
+LDFLAGS := -s -w -X main.Version=$(shell date "+%Y%m%d%H%M") -X main.GitCommit=$(shell git rev-parse --short HEAD)
 
 run-server: build-server
 	./build/debug/$(BIN)-server | jq

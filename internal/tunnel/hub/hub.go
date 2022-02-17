@@ -62,7 +62,7 @@ func (h *Hub) SendCommand(id uint16, cmd uint8) bool {
 
 func (h *Hub) send(id uint16, data []byte) bool {
 	if err := h.tunnel.WritePacket(id, data); err != nil {
-		log.Errorf("link(%d) write to %s failed:%s", id, h.tunnel, err.Error())
+		log.Errorf("link(%d) write to %s failed: %s", id, h.tunnel, err.Error())
 		return false
 	}
 	return true
@@ -70,7 +70,7 @@ func (h *Hub) send(id uint16, data []byte) bool {
 
 func (h *Hub) onCtrl(cmd Command) {
 	if cmd.Cmd != TunHeartbeat {
-		log.Debugf("link(%d) recv cmd:%d", cmd.ID, cmd.Cmd)
+		log.Debugf("link(%d) recv cmd: %d", cmd.ID, cmd.Cmd)
 	}
 
 	if h.OnCtrlFilter != nil && h.OnCtrlFilter(cmd) {
@@ -80,7 +80,7 @@ func (h *Hub) onCtrl(cmd Command) {
 	id := cmd.ID
 	l := h.GetLink(id)
 	if l == nil {
-		log.Errorf("link(%d) recv Cmd:%d, no Link", id, cmd.Cmd)
+		log.Errorf("link(%d) recv cmd: %d, no link", id, cmd.Cmd)
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h *Hub) onCtrl(cmd Command) {
 	case LinkCloseSend:
 		l.closeWrite()
 	default:
-		log.Errorf("link(%d) receive unknown Cmd:%v", id, cmd)
+		log.Errorf("link(%d) receive unknown cmd: %v", id, cmd)
 	}
 }
 
@@ -100,7 +100,7 @@ func (h *Hub) onData(id uint16, data []byte) {
 	link := h.GetLink(id)
 	if link == nil {
 		mPool.Put(data)
-		log.Errorf("link(%d) no Link", id)
+		log.Errorf("link(%d) no link", id)
 		return
 	}
 
@@ -120,7 +120,7 @@ func (h *Hub) Start() {
 	for {
 		id, data, err := h.tunnel.ReadPacket()
 		if err != nil {
-			log.Errorf("%s read failed:%v", h.tunnel, err)
+			log.Errorf("%s read failed: %v", h.tunnel, err)
 			break
 		}
 
@@ -130,7 +130,7 @@ func (h *Hub) Start() {
 			err := binary.Read(buf, binary.LittleEndian, &cmd)
 			mPool.Put(data)
 			if err != nil {
-				log.Errorf("parse message failed:%s, break dispatch", err.Error())
+				log.Errorf("parse message failed: %s, break dispatch", err.Error())
 				break
 			}
 			h.onCtrl(cmd)
@@ -183,15 +183,19 @@ func (h *Hub) DeleteLink(id uint16) {
 }
 
 func (h *Hub) CreateLink(id uint16) *Link {
-	log.Infof("link(%d) new Link over %s", id, h.tunnel)
+	log.Infof("link(%d) new link over %s", id, h.tunnel)
+
 	h.linksLock.Lock()
 	defer h.linksLock.Unlock()
+
 	if _, ok := h.links[id]; ok {
 		log.Errorf("link(%d) repeated over %s", id, h.tunnel)
 		return nil
 	}
+
 	l := newLink(id)
 	h.links[id] = l
+
 	return l
 }
 
