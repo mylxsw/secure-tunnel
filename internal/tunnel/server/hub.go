@@ -60,17 +60,19 @@ func (h *Hub) onCtrlFilter(cmd hub.Command) bool {
 
 func (h *Hub) buildDataFilter(backend *Backend, authedUser *auth.AuthedUser) func(isResp bool, link *hub.Link, data []byte) {
 	return func(isResp bool, link *hub.Link, data []byte) {
-		if backend.Backend.Protocol == "" {
+		if backend.Backend.Protocol == "" || isResp {
 			return
 		}
 
 		switch backend.Backend.Protocol {
 		case "redis":
-			redisProtocolFilter(isResp, link, data, authedUser, backend)
+			go redisProtocolFilter(link, data, authedUser, backend)
 		case "mysql":
-			mysqlProtocolFilter(isResp, link, data, authedUser, backend)
+			go mysqlProtocolFilter(link, data, authedUser, backend)
+		case "mongo":
+			go mongoProtocolFilter(link, data, authedUser, backend)
 		default:
-			defaultProtocolFilter(isResp, link, data, authedUser, backend)
+			go defaultProtocolFilter(link, data, authedUser, backend)
 		}
 	}
 }
