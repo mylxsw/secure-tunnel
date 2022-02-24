@@ -7,7 +7,9 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
+	github.com/mongodb/mongonet v0.0.0-20220124145415-75addb6dfcea
 	github.com/mylxsw/asteria v0.0.0-20220215024857-ed6a52a3d70d
+	github.com/mylxsw/coll v0.0.0-20210423142615-0a2e3d0afc0e
 	github.com/mylxsw/glacier v0.0.0-20220215025028-3e36f8183255
 	github.com/mylxsw/go-utils v0.0.0-20210720060419-1aac8fb9b538
 	github.com/mylxsw/graceful v0.0.0-20210318070625-a4a80fb77564
@@ -45,7 +47,6 @@ require (
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/mongodb/mongonet v0.0.0-20220124145415-75addb6dfcea // indirect
 	github.com/mongodb/slogger v0.0.0-20200908173206-e26499443662 // indirect
 	github.com/mylxsw/container v0.0.0-20220124071232-4cf9cc678ad7 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
