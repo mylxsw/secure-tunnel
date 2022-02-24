@@ -30,6 +30,7 @@ type UserConnections struct {
 
 type Connection struct {
 	ID         string    `json:"id"`
+	Backend    string    `json:"backend"`
 	LocalAddr  string    `json:"local_addr"`
 	RemoteAddr string    `json:"remote_addr"`
 	ReadBytes  int64     `json:"read_bytes"`
@@ -46,6 +47,7 @@ func (ctl ServerController) ServerStatus(wtx web.Context, srv *server.Server) we
 				cs := v.(server.ConnStatus)
 				conns = append(conns, Connection{
 					ID:         cs.ID,
+					Backend:    cs.Backend,
 					LocalAddr:  cs.LocalAddr,
 					RemoteAddr: cs.RemoteAddr,
 					ReadBytes:  cs.ReadBytes,

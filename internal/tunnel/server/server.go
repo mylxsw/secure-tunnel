@@ -34,6 +34,7 @@ type ConnStatus struct {
 	LocalAddr  string           `json:"local_addr"`
 	RemoteAddr string           `json:"remote_addr"`
 	User       *auth.AuthedUser `json:"user"`
+	Backend    string           `json:"backend"`
 	ReadBytes  int64            `json:"read_bytes"`
 	WriteBytes int64            `json:"write_bytes"`
 	CreatedAt  time.Time        `json:"created_at"`
@@ -46,6 +47,7 @@ type connInfo struct {
 	writeBytes int64
 	createdAt  time.Time
 	user       *auth.AuthedUser
+	backend    string
 }
 
 // NewServer create a tunnel server
@@ -151,8 +153,9 @@ func (s *Server) handleConnection(conn *connInfo, author auth.Author) {
 		return
 	}
 
-	if backend, ok := s.backends[backend]; ok {
+	if bak, ok := s.backends[backend]; ok {
 		conn.user = authedUser
+		conn.backend = backend
 
 		s.connectionsLock.Lock()
 		s.connections[conn.id] = conn
@@ -167,12 +170,12 @@ func (s *Server) handleConnection(conn *connInfo, author auth.Author) {
 		log.WithFields(log.Fields{
 			"client":      common.DecodeSystemInfo(clientInfoPacket),
 			"user":        authedUser,
-			"backend":     backend,
+			"backend":     bak,
 			"conn_id":     conn.id,
 			"remote_addr": conn.RemoteAddr().String(),
 		}).Infof("user %s connected from %s", authedUser.Account, conn.RemoteAddr().String())
 
-		newHub(tun, backend, authedUser).Start()
+		newHub(tun, bak, authedUser).Start()
 	}
 }
 
@@ -217,6 +220,7 @@ func (s *Server) Status() []ConnStatus {
 			LocalAddr:  conn.Conn.LocalAddr().String(),
 			RemoteAddr: conn.Conn.RemoteAddr().String(),
 			User:       conn.user,
+			Backend:    conn.backend,
 			ReadBytes:  conn.readBytes,
 			WriteBytes: conn.writeBytes,
 			CreatedAt:  conn.createdAt,
