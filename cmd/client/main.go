@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -23,7 +25,7 @@ func main() {
 
 	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport(1 * time.Second)
 
-	app.AddStringFlag("conf", "client.yaml", "服务器配置文件")
+	app.AddStringFlag("conf", buildDefaultConfigPath(), "服务器配置文件")
 	app.AddStringFlag("server", "", "server address")
 	app.AddStringFlag("secret", "", "server secret")
 	app.AddIntFlag("tunnels", 0, "tunnels")
@@ -78,4 +80,13 @@ func main() {
 	app.Provider(tunnel.ClientProvider{})
 
 	application.MustRun(app)
+}
+
+func buildDefaultConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "client.yaml"
+	}
+
+	return filepath.Join(home, "secure-tunnel.client.yaml")
 }

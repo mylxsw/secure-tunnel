@@ -10,7 +10,7 @@ require (
 	github.com/mongodb/mongonet v0.0.0-20220124145415-75addb6dfcea
 	github.com/mylxsw/asteria v0.0.0-20220220133510-8471fb7d8002
 	github.com/mylxsw/coll v0.0.0-20210423142615-0a2e3d0afc0e
-	github.com/mylxsw/glacier v0.0.0-20220227155635-204bb4d3f904
+	github.com/mylxsw/glacier v0.0.0-20220228040231-aba7e4c7731e
 	github.com/mylxsw/go-utils v0.0.0-20210720060419-1aac8fb9b538
 	github.com/prometheus/client_golang v1.12.1
 	github.com/secmask/go-redisproto v0.1.0

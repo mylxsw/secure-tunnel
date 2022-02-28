@@ -15,7 +15,9 @@ build-client:
 
 build-release:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/release/$(BIN)-server cmd/server/main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o build/release/$(BIN)-client cmd/client/main.go
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" -o build/release/$(BIN)-client-linux cmd/client/main.go
+	CGO_ENABLED=0 GOOS=darwin go build -ldflags "$(LDFLAGS)" -o build/release/$(BIN)-client-darwin cmd/client/main.go
+	CGO_ENABLED=0 GOOS=windows go build -ldflags "$(LDFLAGS)" -o build/release/$(BIN)-client.exe cmd/client/main.go
 
 clean:
 	rm -fr build/debug/ build/release/
