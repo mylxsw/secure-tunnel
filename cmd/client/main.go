@@ -26,6 +26,7 @@ import (
 
 var Version = "1.0"
 var GitCommit = "5dbef13fb456f51a5d29464d"
+var DefaultServerAddr = "http://127.0.0.1:8081/api/client/config/Zc4z-n1dd-6qu"
 
 func main() {
 	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport(1 * time.Second)
@@ -93,10 +94,10 @@ func main() {
 func buildDefaultConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "client.yaml"
+		return ".secure-tunnel.client.yaml"
 	}
 
-	return filepath.Join(home, "secure-tunnel.client.yaml")
+	return filepath.Join(home, ".secure-tunnel.client.yaml")
 }
 
 func ensureConfigFile(defaultConfigFile string) string {
@@ -104,7 +105,7 @@ func ensureConfigFile(defaultConfigFile string) string {
 		log.Errorf("配置文件不存在，请录入以下信息自动生成: %s", defaultConfigFile)
 
 		var serverAddress string
-		if err := survey.AskOne(&survey.Input{Message: "Please input server address", Default: "http://127.0.0.1:8081/api/client/config/Zc4z-n1dd-6qu"}, &serverAddress); err != nil {
+		if err := survey.AskOne(&survey.Input{Message: "Please input server address", Default: DefaultServerAddr}, &serverAddress); err != nil {
 			panic(fmt.Errorf("invalid server address: %v", err))
 		}
 
