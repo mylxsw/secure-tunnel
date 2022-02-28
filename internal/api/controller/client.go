@@ -39,9 +39,14 @@ func (c ClientController) GenerateConf(ctx web.Context, conf *config.Server) web
 
 	backends := make([]config.BackendPortMapping, 0)
 	for _, back := range conf.Backends {
+		listenAddr := back.BindSuggest
+		if listenAddr == "" {
+			listenAddr = fmt.Sprintf("127.0.0.1:%s", strings.Split(back.Addr, ":")[1])
+		}
+
 		backends = append(backends, config.BackendPortMapping{
 			Backend: back.Name,
-			Listen:  fmt.Sprintf("127.0.0.1:%s", strings.Split(back.Addr, ":")[1]),
+			Listen:  listenAddr,
 		})
 	}
 

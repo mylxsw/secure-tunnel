@@ -13,6 +13,7 @@ backends:
     protocol: redis
   - name: mongo-dev
     addr: 10.22.1.133:27017
+    bind_suggest: 127.0.0.1:27017 # 客户端本地绑定建议地址
 #    protocol: mongo # not support for mongo yet
 
 ldap:

@@ -53,9 +53,10 @@ type Server struct {
 }
 
 type BackendServer struct {
-	Addr     string `json:"addr" yaml:"addr"`
-	Name     string `json:"name" yaml:"name"`
-	Protocol string `json:"protocol" yaml:"protocol"`
+	Addr        string `json:"addr" yaml:"addr"`
+	Name        string `json:"name" yaml:"name"`
+	Protocol    string `json:"protocol" yaml:"protocol"`
+	BindSuggest string `json:"bind_suggest,omitempty" yaml:"bind_suggest,omitempty"`
 }
 
 // populateDefault 填充默认值
