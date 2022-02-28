@@ -48,6 +48,7 @@ func (s Provider) routes(resolver infra.Resolver, router web.Router, mw web.Requ
 	router.WithMiddleware(mws...).Controllers(
 		"/api",
 		controller.NewServerController(resolver),
+		controller.NewClientController(resolver),
 	)
 }
 

@@ -10,14 +10,14 @@ import (
 )
 
 type Client struct {
-	Verbose  bool                 `json:"verbose" yaml:"verbose"`
-	Server   string               `json:"server" yaml:"server"`
-	Secret   string               `json:"secret" yaml:"secret"`
-	Backends []BackendPortMapping `json:"backends" yaml:"backends"`
-	Username string               `json:"username" yaml:"username"`
-	Password string               `json:"-" yaml:"password"`
-	Tunnels  uint                 `json:"tunnels" yaml:"tunnels"`
-	LogPath  string               `json:"log_path" yaml:"log_path"`
+	Verbose  bool                 `json:"verbose,omitempty" yaml:"verbose,omitempty"`
+	Server   string               `json:"server,omitempty" yaml:"server"`
+	Secret   string               `json:"secret,omitempty" yaml:"secret"`
+	Backends []BackendPortMapping `json:"backends,omitempty" yaml:"backends"`
+	Username string               `json:"username,omitempty" yaml:"username,omitempty"`
+	Password string               `json:"-" yaml:"password,omitempty"`
+	Tunnels  uint                 `json:"tunnels,omitempty" yaml:"tunnels,omitempty"`
+	LogPath  string               `json:"log_path,omitempty" yaml:"log_path,omitempty"`
 }
 
 type BackendPortMapping struct {

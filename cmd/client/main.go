@@ -2,7 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/mylxsw/go-utils/file"
+	"github.com/mylxsw/secure-tunnel/internal/api/controller"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,8 +28,6 @@ var Version = "1.0"
 var GitCommit = "5dbef13fb456f51a5d29464d"
 
 func main() {
-	//log.All().LogFormatter(formatter.NewJSONFormatter())
-
 	app := application.Create(fmt.Sprintf("%s %s", Version, GitCommit)).WithShutdownTimeoutFlagSupport(1 * time.Second)
 
 	app.AddStringFlag("conf", buildDefaultConfigPath(), "服务器配置文件")
@@ -31,7 +36,10 @@ func main() {
 	app.AddIntFlag("tunnels", 0, "tunnels")
 
 	app.Singleton(func(c infra.FlagContext) (*config.Client, error) {
-		conf, err := config.LoadClientConfFromFile(c.String("conf"))
+		confPath := c.String("conf")
+		ensureConfigFile(confPath)
+
+		conf, err := config.LoadClientConfFromFile(confPath)
 		if err != nil {
 			return conf, err
 		}
@@ -89,4 +97,59 @@ func buildDefaultConfigPath() string {
 	}
 
 	return filepath.Join(home, "secure-tunnel.client.yaml")
+}
+
+func ensureConfigFile(defaultConfigFile string) string {
+	if !file.Exist(defaultConfigFile) {
+		log.Errorf("配置文件不存在，请录入以下信息自动生成: %s", defaultConfigFile)
+
+		var serverAddress string
+		if err := survey.AskOne(&survey.Input{Message: "Please input server address", Default: "http://127.0.0.1:8081/api/client/config/Zc4z-n1dd-6qu"}, &serverAddress); err != nil {
+			panic(fmt.Errorf("invalid server address: %v", err))
+		}
+
+		clientConfData, err := yaml.Marshal(requestServer(serverAddress))
+		if err != nil {
+			panic(err)
+		}
+
+		if err := ioutil.WriteFile(defaultConfigFile, clientConfData, os.ModePerm); err != nil {
+			panic(fmt.Errorf("create config file failed: %v", err))
+		}
+	}
+
+	return defaultConfigFile
+}
+
+func requestServer(serverAddress string) config.Client {
+	serverURL, err := url.Parse(serverAddress)
+	if err != nil {
+		panic(fmt.Errorf("invalid server address: %v", err))
+	}
+
+	resp, err := http.Get(serverAddress)
+	if err != nil {
+		panic(fmt.Errorf("request to server failed: %v", err))
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(fmt.Errorf("read response body from server failed: %v", err))
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		panic(fmt.Errorf("server response invalid code: %s", string(data)))
+	}
+
+	var clientConfResp controller.ClientConfResp
+	if err := json.Unmarshal(data, &clientConfResp); err != nil {
+		panic(fmt.Errorf("unmarshal response body failed: %v", err))
+	}
+
+	client := config.Client{}
+	client.Server = fmt.Sprintf("%s:%s", serverURL.Hostname(), clientConfResp.ServerPort)
+	client.Backends = clientConfResp.Backends
+	client.Secret = clientConfResp.Secret
+
+	return client
 }
