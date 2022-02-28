@@ -8,11 +8,10 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/mongodb/mongonet v0.0.0-20220124145415-75addb6dfcea
-	github.com/mylxsw/asteria v0.0.0-20220215024857-ed6a52a3d70d
+	github.com/mylxsw/asteria v0.0.0-20220220133510-8471fb7d8002
 	github.com/mylxsw/coll v0.0.0-20210423142615-0a2e3d0afc0e
-	github.com/mylxsw/glacier v0.0.0-20220215025028-3e36f8183255
+	github.com/mylxsw/glacier v0.0.0-20220227155635-204bb4d3f904
 	github.com/mylxsw/go-utils v0.0.0-20210720060419-1aac8fb9b538
-	github.com/mylxsw/graceful v0.0.0-20210318070625-a4a80fb77564
 	github.com/prometheus/client_golang v1.12.1
 	github.com/secmask/go-redisproto v0.1.0
 	github.com/shirou/gopsutil/v3 v3.22.1

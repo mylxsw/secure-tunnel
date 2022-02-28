@@ -176,14 +176,14 @@ func (h *Hub) GetLink(id uint16) *Link {
 }
 
 func (h *Hub) DeleteLink(id uint16) {
-	log.Infof("link(%d) delete", id)
+	log.Debugf("link(%d) delete", id)
 	h.linksLock.Lock()
 	defer h.linksLock.Unlock()
 	delete(h.links, id)
 }
 
 func (h *Hub) CreateLink(id uint16) *Link {
-	log.Infof("link(%d) new link over %s", id, h.tunnel)
+	log.Debugf("link(%d) new link over %s", id, h.tunnel)
 
 	h.linksLock.Lock()
 	defer h.linksLock.Unlock()
@@ -204,7 +204,7 @@ func (h *Hub) StartLink(link *Link, conn *net.TCPConn, authedUser *auth.AuthedUs
 	_ = conn.SetKeepAlivePeriod(time.Second * 60)
 	link.setConn(conn)
 
-	log.With(authedUser).Infof("link(%d) start %v", link.ID, conn.RemoteAddr())
+	log.With(authedUser).Debugf("link(%d) start %v", link.ID, conn.RemoteAddr())
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -239,5 +239,5 @@ func (h *Hub) StartLink(link *Link, conn *net.TCPConn, authedUser *auth.AuthedUs
 		}
 	}()
 	wg.Wait()
-	log.Infof("link(%d) close", link.ID)
+	log.Debugf("link(%d) close", link.ID)
 }

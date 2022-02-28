@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mylxsw/asteria/log"
-	"github.com/mylxsw/graceful"
+	"github.com/mylxsw/glacier/infra"
 	"github.com/mylxsw/secure-tunnel/internal/auth"
 	"github.com/mylxsw/secure-tunnel/internal/config"
 	"github.com/mylxsw/secure-tunnel/internal/tunnel/common"
@@ -18,8 +18,9 @@ import (
 
 // Client tunnel client
 type Client struct {
-	conf    *config.Client
-	version string
+	initConnToRemote sync.Once
+	conf             *config.Client
+	version          string
 
 	backend    config.BackendPortMapping
 	serverAddr string
@@ -56,7 +57,7 @@ func (cli *Client) dial() (net.Conn, error) {
 	return tcpConn, nil
 }
 
-func (cli *Client) createHub(gf graceful.Graceful) (hubItem *queueItem, err error) {
+func (cli *Client) createHub(gf infra.Graceful) (hubItem *queueItem, err error) {
 	defer func() {
 		if err2 := recover(); err2 != nil {
 			err = fmt.Errorf("create client hubItem failed: %v", err2)
@@ -177,13 +178,15 @@ func (cli *Client) handleConnection(item *queueItem, conn *net.TCPConn) {
 	h.StartLink(l, conn, &auth.AuthedUser{Account: cli.conf.Username})
 }
 
-func (cli *Client) listen(ctx context.Context) error {
+func (cli *Client) listen(ctx context.Context, gf infra.Graceful) error {
 	ln, err := net.Listen("tcp", cli.backend.Listen)
 	if err != nil {
 		return err
 	}
 
 	defer func() { _ = ln.Close() }()
+
+	log.Debugf("listen on %s for %s ...", cli.backend.Listen, cli.backend.Backend)
 
 	tcpListener := ln.(*net.TCPListener)
 	for {
@@ -200,7 +203,14 @@ func (cli *Client) listen(ctx context.Context) error {
 				return err
 			}
 
-			log.Infof("new connection from %v", conn.RemoteAddr())
+			log.Debugf("new connection from %v", conn.RemoteAddr())
+
+			cli.initConnToRemote.Do(func() {
+				cli.initialize(ctx, gf)
+				// 第一次连接本地端口时，延迟3s先建立与服务端的连接
+				log.Debugf("connect to server %s...", cli.backend.Backend)
+				time.Sleep(3 * time.Second)
+			})
 
 			h := cli.fetchHub()
 			if h == nil {
@@ -217,7 +227,11 @@ func (cli *Client) listen(ctx context.Context) error {
 }
 
 // Start .
-func (cli *Client) Start(ctx context.Context, gf graceful.Graceful) error {
+func (cli *Client) Start(ctx context.Context, gf infra.Graceful) error {
+	return cli.listen(ctx, gf)
+}
+
+func (cli *Client) initialize(ctx context.Context, gf infra.Graceful) {
 	for i := 0; i < cap(cli.cq); i++ {
 		go func(index int) {
 			defer common.ErrorHandler()
@@ -248,8 +262,6 @@ func (cli *Client) Start(ctx context.Context, gf graceful.Graceful) error {
 			}
 		}(i)
 	}
-
-	return cli.listen(ctx)
 }
 
 func (cli *Client) Status() {

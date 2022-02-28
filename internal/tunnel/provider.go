@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/mylxsw/asteria/log"
 	"github.com/mylxsw/glacier/infra"
-	"github.com/mylxsw/graceful"
 	"github.com/mylxsw/secure-tunnel/internal/config"
 	"github.com/mylxsw/secure-tunnel/internal/tunnel/client"
 	"github.com/mylxsw/secure-tunnel/internal/tunnel/server"
@@ -17,7 +16,7 @@ func (p ClientProvider) Register(app infra.Binder) {
 }
 
 func (p ClientProvider) Daemon(ctx context.Context, app infra.Resolver) {
-	app.MustResolve(func(conf *config.Client, gf graceful.Graceful) {
+	app.MustResolve(func(conf *config.Client, gf infra.Graceful) {
 		version := app.MustGet(infra.VersionKey).(string)
 
 		var wg sync.WaitGroup

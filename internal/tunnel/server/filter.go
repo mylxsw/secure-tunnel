@@ -39,7 +39,7 @@ func mongoProtocolFilter(link *hub.Link, data []byte, authedUser *auth.AuthedUse
 			strings.Contains(data, `"delete":`) {
 
 			log.WithFields(log.Fields{
-				"user":    authedUser,
+				"user":    authedUser.ToLogEntry(),
 				"backend": backend.Backend,
 				"link":    link.ID,
 				"data":    bodyDoc.String(),
@@ -56,7 +56,7 @@ func mongoProtocolFilter(link *hub.Link, data []byte, authedUser *auth.AuthedUse
 		}
 
 		log.WithFields(log.Fields{
-			"user":      authedUser,
+			"user":      authedUser.ToLogEntry(),
 			"backend":   backend.Backend,
 			"link":      link.ID,
 			"data":      data,
@@ -70,7 +70,7 @@ func mongoProtocolFilter(link *hub.Link, data []byte, authedUser *auth.AuthedUse
 		query, _ := msg.Query.ToBSOND()
 
 		log.WithFields(log.Fields{
-			"user":      authedUser,
+			"user":      authedUser.ToLogEntry(),
 			"backend":   backend.Backend,
 			"link":      link.ID,
 			"project":   proj,
@@ -85,7 +85,7 @@ func mysqlProtocolFilter(link *hub.Link, data []byte, authedUser *auth.AuthedUse
 	message := mysql.PacketResolve(data)
 	if message != "" {
 		log.WithFields(log.Fields{
-			"user":    authedUser,
+			"user":    authedUser.ToLogEntry(),
 			"backend": backend.Backend,
 			"link":    link.ID,
 			"data":    message,
@@ -106,7 +106,7 @@ func redisProtocolFilter(link *hub.Link, data []byte, authedUser *auth.AuthedUse
 	}
 
 	log.WithFields(log.Fields{
-		"user":    authedUser,
+		"user":    authedUser.ToLogEntry(),
 		"backend": backend.Backend,
 		"link":    link.ID,
 		"data":    strings.Join(strs, " "),

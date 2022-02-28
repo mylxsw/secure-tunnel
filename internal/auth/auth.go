@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"github.com/mylxsw/asteria/log"
 )
 
 type Author interface {
@@ -17,6 +18,15 @@ type AuthedUser struct {
 	Account string   `json:"account,omitempty" yaml:"account,omitempty"`
 	Groups  []string `json:"groups,omitempty" yaml:"groups,omitempty"`
 	Status  int8     `json:"status,omitempty" yaml:"status,omitempty"`
+}
+
+func (au *AuthedUser) ToLogEntry() log.M {
+	return log.M{
+		"type":    au.Type,
+		"uuid":    au.UUID,
+		"name":    au.Name,
+		"account": au.Account,
+	}
 }
 
 var ErrNoSuchUser = errors.New("user not found")
